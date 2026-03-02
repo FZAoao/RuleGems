@@ -16,6 +16,14 @@ import org.incendo.cloud.paper.LegacyPaperCommandManager;
 import org.incendo.cloud.execution.ExecutionCoordinator;
 import org.incendo.cloud.parser.standard.IntegerParser;
 import org.incendo.cloud.parser.standard.StringParser;
+import org.incendo.cloud.suggestion.Suggestion;
+import org.incendo.cloud.suggestion.SuggestionProvider;
+import org.bukkit.Bukkit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.cubexmc.features.appoint.AppointFeature;
+
 import org.cubexmc.RuleGems;
 import org.cubexmc.commands.sub.AppointSubCommand;
 import org.cubexmc.commands.sub.AppointeesSubCommand;
@@ -330,25 +338,60 @@ public class CloudCommandManager {
                 .handler(ctx -> removeAltarSubCommand.execute(ctx.sender(), new String[0])));
     }
 
+    private SuggestionProvider<CommandSender> getPermSetSuggestions() {
+        return SuggestionProvider.blocking((ctx, input) -> {
+            AppointFeature feature = plugin.getFeatureManager().getAppointFeature();
+            if (feature == null) return java.util.Collections.emptyList();
+            
+            CommandSender sender = ctx.sender();
+            List<Suggestion> suggestions = new ArrayList<>();
+            for (String key : feature.getAppointDefinitions().keySet()) {
+                if (sender.hasPermission("rulegems.appoint." + key) || sender.hasPermission("rulegems.admin")) {
+                    suggestions.add(Suggestion.suggestion(key));
+                }
+            }
+            return suggestions;
+        });
+    }
+
+    private SuggestionProvider<CommandSender> getAllPermSetSuggestions() {
+        return SuggestionProvider.blocking((ctx, input) -> {
+            AppointFeature feature = plugin.getFeatureManager().getAppointFeature();
+            if (feature == null) return java.util.Collections.emptyList();
+            
+            return feature.getAppointDefinitions().keySet().stream()
+                    .map(Suggestion::suggestion)
+                    .collect(Collectors.toList());
+        });
+    }
+
+    private SuggestionProvider<CommandSender> getOnlinePlayerSuggestions() {
+        return SuggestionProvider.blocking((ctx, input) -> {
+            return Bukkit.getOnlinePlayers().stream()
+                    .map(p -> Suggestion.suggestion(p.getName()))
+                    .collect(Collectors.toList());
+        });
+    }
+
     private void registerAppoint(CommandManager<CommandSender> m) {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("appoint")
-                .permission("rulegems.admin")
-                .required("args", StringParser.greedyStringParser())
+                .required("perm_set", StringParser.stringParser(), getPermSetSuggestions())
+                .required("player", StringParser.stringParser(), getOnlinePlayerSuggestions())
                 .handler(ctx -> {
-                    String raw = ctx.get("args");
-                    appointSubCommand.execute(ctx.sender(), raw.split(" "));
+                    String[] args = new String[] { ctx.get("perm_set"), ctx.get("player") };
+                    appointSubCommand.execute(ctx.sender(), args);
                 }));
     }
 
     private void registerDismiss(CommandManager<CommandSender> m) {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("dismiss")
-                .permission("rulegems.admin")
-                .required("args", StringParser.greedyStringParser())
+                .required("perm_set", StringParser.stringParser(), getPermSetSuggestions())
+                .required("player", StringParser.stringParser(), getOnlinePlayerSuggestions())
                 .handler(ctx -> {
-                    String raw = ctx.get("args");
-                    dismissSubCommand.execute(ctx.sender(), raw.split(" "));
+                    String[] args = new String[] { ctx.get("perm_set"), ctx.get("player") };
+                    dismissSubCommand.execute(ctx.sender(), args);
                 }));
     }
 
@@ -356,7 +399,11 @@ public class CloudCommandManager {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("appointees")
                 .permission("rulegems.admin")
-                .handler(ctx -> appointeesSubCommand.execute(ctx.sender(), new String[0])));
+                .optional("perm_set", StringParser.stringParser(), getAllPermSetSuggestions())
+                .handler(ctx -> {
+                    String[] args = ctx.contains("perm_set") ? new String[] { ctx.get("perm_set") } : new String[0];
+                    appointeesSubCommand.execute(ctx.sender(), args);
+                }));
     }
 
     // ======================================================================
