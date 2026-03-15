@@ -2,20 +2,16 @@ package org.cubexmc.manager;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.bukkit.Location;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.cubexmc.RuleGems;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,11 +64,11 @@ class GemStateManagerSafetyTest {
         manager.setGemHolder(gemId, holder);
         manager.setGemKey(gemId, "fire");
 
-        FileConfiguration gemsData = mock(FileConfiguration.class);
-        manager.saveData(gemsData);
+        Map<String, Object> snapshot = new HashMap<>();
+        manager.populateSaveSnapshot(snapshot);
 
-        verify(gemsData, never()).set(contains("placed-gems." + gemId), any());
-        verify(gemsData).set(eq("held-gems." + gemId + ".player"), eq("Alice"));
-        verify(gemsData).set(eq("held-gems." + gemId + ".player_uuid"), eq(playerId.toString()));
+        assertNull(snapshot.get("placed-gems." + gemId + ".world"));
+        assertEquals("Alice", snapshot.get("held-gems." + gemId + ".player"));
+        assertEquals(playerId.toString(), snapshot.get("held-gems." + gemId + ".player_uuid"));
     }
 }

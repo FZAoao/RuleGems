@@ -57,17 +57,13 @@ public class RulersGUI extends ChestMenu {
 
     @Override
     protected int getSize() {
-        return manager.GUI_SIZE;
+        return GUIManager.GUI_SIZE;
     }
 
     @Override
     protected GUIHolder.GUIType getHolderType() {
         return GUIHolder.GUIType.RULERS;
     }
-
-    @Override
-    protected void populate(org.bukkit.inventory.Inventory inv, GUIHolder holder) {
-        /* used via open() */ }
 
     @Override
     public void onClick(Player player, GUIHolder holder, int slot,
@@ -105,7 +101,7 @@ public class RulersGUI extends ChestMenu {
         List<Map.Entry<UUID, Set<String>>> rulerList = new ArrayList<>(rulers.entrySet());
 
         int totalItems = rulerList.size();
-        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / manager.ITEMS_PER_PAGE));
+        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / GUIManager.ITEMS_PER_PAGE));
         page = Math.max(0, Math.min(page, totalPages - 1));
 
         // 创建 GUI
@@ -121,7 +117,7 @@ public class RulersGUI extends ChestMenu {
                 isAdmin,
                 page);
 
-        Inventory gui = Bukkit.createInventory(holder, manager.GUI_SIZE, title);
+        Inventory gui = Bukkit.createInventory(holder, GUIManager.GUI_SIZE, title);
         holder.setInventory(gui);
 
         // 填充装饰和控制栏（启用返回按钮）
@@ -133,8 +129,8 @@ public class RulersGUI extends ChestMenu {
             gui.setItem(13, createNoRulersItem());
         } else {
             // 填充统治者内容
-            int startIndex = page * manager.ITEMS_PER_PAGE;
-            int endIndex = Math.min(startIndex + manager.ITEMS_PER_PAGE, totalItems);
+            int startIndex = page * GUIManager.ITEMS_PER_PAGE;
+            int endIndex = Math.min(startIndex + GUIManager.ITEMS_PER_PAGE, totalItems);
 
             for (int i = startIndex; i < endIndex; i++) {
                 int slot = i - startIndex;

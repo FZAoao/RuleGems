@@ -16,14 +16,11 @@ import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.permissions.PermissionAttachment;
-// Removed unused import: PotionEffectType
 
 import org.cubexmc.RuleGems;
 import org.cubexmc.features.Feature;
 import org.cubexmc.model.AppointDefinition;
 import org.cubexmc.utils.SchedulerUtil;
-// Removed unused import: EffectConfig
 import org.cubexmc.model.GemDefinition;
 import org.cubexmc.model.PowerStructure;
 
@@ -39,9 +36,6 @@ public class AppointFeature extends Feature {
 
     // 任命数据: permSetKey -> appointeeUuid -> Appointment
     private final Map<String, Map<UUID, Appointment>> appointments = new HashMap<>();
-
-    // 权限附件: playerUuid -> PermissionAttachment
-    private final Map<UUID, PermissionAttachment> attachments = new HashMap<>();
 
     // 级联撤销（连坐制）
     private boolean cascadeRevoke = true;
@@ -87,14 +81,6 @@ public class AppointFeature extends Feature {
         if (psm != null) {
             psm.clearAllInNamespace("appoint");
         }
-        // 兼容：移除旧的权限附件
-        for (PermissionAttachment attachment : attachments.values()) {
-            try {
-                attachment.remove();
-            } catch (Exception ignored) {
-            }
-        }
-        attachments.clear();
     }
 
     @Override
@@ -172,6 +158,10 @@ public class AppointFeature extends Feature {
         // 从所有已加载的 Gems 中注册 AppointDefinition
         registerAppointDefinitionsFromGems();
 
+        if (enabled && appointDefinitions.isEmpty()) {
+            plugin.getLogger().warning(
+                    "Appoint feature is enabled but no appoint definitions were loaded. Define appoints in gems/*.yml or powers/*.yml.");
+        }
         plugin.getLogger().info("Loaded " + appointDefinitions.size() + " appoint definitions.");
     }
 
@@ -189,10 +179,8 @@ public class AppointFeature extends Feature {
             }
         }
 
-        // 同时也从 Power Templates 中注册，以防有些模板未被 Gem 使用但被引用
-        // ConfigManager 没有直接暴露 templates map，但我们可以通过 parsePowerStructure 间接访问
-        // 或者给 ConfigManager 加一个 getter。这里暂时只从 Gems 注册。
-        // 如果用户希望定义全局可用的 Appoint，应该在 appoint.yml 定义，或者确保至少有一个 Gem 使用了该模板。
+        // appoint 职位定义目前以已加载的 Gem / PowerStructure 为来源，
+        // 这样运行时看到的职位集合与实际玩法内容保持一致。
     }
 
     private void registerAppointsRecursively(PowerStructure power) {
@@ -513,15 +501,6 @@ public class AppointFeature extends Feature {
             psm.clearNamespace(player, "appoint");
         }
 
-        // 兼容：移除旧的权限附件
-        PermissionAttachment oldAttachment = attachments.remove(player.getUniqueId());
-        if (oldAttachment != null) {
-            try {
-                oldAttachment.remove();
-            } catch (Exception ignored) {
-            }
-        }
-
         // 为每个任命应用对应的 PowerStructure
         Set<String> processedSets = new HashSet<>();
         for (Appointment appointment : getPlayerAppointments(player.getUniqueId())) {
@@ -571,83 +550,6 @@ public class AppointFeature extends Feature {
 
             psm.applyStructure(player, extendedPower, "appoint", permSetKey, true);
         }
-    }
-
-    /**
-     * 应用委任的药水效果（保留用于兼容）
-     */
-    private void applyAppointEffects(Player player, List<org.cubexmc.model.EffectConfig> effects) {
-        if (effects == null || effects.isEmpty())
-            return;
-        for (org.cubexmc.model.EffectConfig effect : effects) {
-            if (effect != null) {
-                effect.apply(player);
-            }
-        }
-    }
-
-    /**
-     * 移除所有由委任应用的药水效果（保留用于兼容）
-     */
-    private void removeAllAppointEffects(Player player) {
-        // 遍历所有可能的委任定义，移除它们的效果
-        for (AppointDefinition def : appointDefinitions.values()) {
-            PowerStructure power = def.getPowerStructure();
-            if (power != null && power.getEffects() != null) {
-                for (org.cubexmc.model.EffectConfig effect : power.getEffects()) {
-                    if (effect != null) {
-                        effect.remove(player);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * 递归收集权限和效果（处理继承，带条件检查）
-     */
-    private void collectPowersWithCondition(String permSetKey, Player player,
-            Set<String> permissions, List<org.cubexmc.model.EffectConfig> effects, Set<String> processedSets) {
-        if (processedSets.contains(permSetKey))
-            return;
-        processedSets.add(permSetKey);
-
-        AppointDefinition def = appointDefinitions.get(permSetKey);
-        if (def == null)
-            return;
-
-        PowerStructure power = def.getPowerStructure();
-        if (power == null)
-            return;
-
-        // 检查条件是否满足
-        org.cubexmc.model.PowerCondition condition = power.getCondition();
-        if (condition != null && !condition.checkConditions(player)) {
-            // 条件不满足，跳过此权限集
-            return;
-        }
-
-        // 添加本权限集的权限
-        permissions.addAll(power.getPermissions());
-
-        // 添加本权限集的药水效果
-        if (power.getEffects() != null) {
-            effects.addAll(power.getEffects());
-        }
-
-        // 自动授予下级职位的任命权限
-        if (power.getAppoints() != null) {
-            for (String appointKey : power.getAppoints().keySet()) {
-                permissions.add(PERMISSION_PREFIX + appointKey);
-            }
-        }
-    }
-
-    // 保留旧方法名的兼容别名
-    private void collectPermissionsWithCondition(String permSetKey, Player player, Set<String> permissions,
-            Set<String> processedSets) {
-        List<org.cubexmc.model.EffectConfig> dummyEffects = new ArrayList<>();
-        collectPowersWithCondition(permSetKey, player, permissions, dummyEffects, processedSets);
     }
 
     /**
@@ -710,14 +612,6 @@ public class AppointFeature extends Feature {
             psm.clearNamespace(player, "appoint");
         }
 
-        // 兼容：移除旧的权限附件
-        PermissionAttachment attachment = attachments.remove(player.getUniqueId());
-        if (attachment != null) {
-            try {
-                attachment.remove();
-            } catch (Exception ignored) {
-            }
-        }
     }
 
     /**

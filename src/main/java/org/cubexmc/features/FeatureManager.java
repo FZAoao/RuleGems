@@ -48,13 +48,6 @@ public class FeatureManager {
     }
 
     /**
-     * 获取功能
-     */
-    public Feature getFeature(String permissionNode) {
-        return features.get(permissionNode);
-    }
-
-    /**
      * 获取导航功能
      */
     public GemNavigator getNavigator() {
@@ -109,10 +102,4 @@ public class FeatureManager {
         features.clear();
     }
 
-    /**
-     * 获取所有已注册的功能
-     */
-    public Map<String, Feature> getAllFeatures() {
-        return new HashMap<>(features);
-    }
 }

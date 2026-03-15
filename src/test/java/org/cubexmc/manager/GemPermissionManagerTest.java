@@ -1,10 +1,11 @@
 package org.cubexmc.manager;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Server;
 import org.bukkit.entity.Player;
-import org.bukkit.permissions.PermissionAttachment;
+import org.bukkit.potion.PotionEffectType;
 import org.cubexmc.RuleGems;
+import org.cubexmc.features.FeatureManager;
+import org.cubexmc.features.appoint.AppointFeature;
 import org.cubexmc.model.*;
 import org.cubexmc.provider.PermissionProvider;
 import org.junit.jupiter.api.AfterEach;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -50,6 +52,7 @@ class GemPermissionManagerTest {
     private static final UUID GEM_3 = UUID.fromString("10000000-0000-0000-0000-000000000003");
 
     private MockedStatic<Bukkit> mockedBukkit;
+    private MockedStatic<PotionEffectType> mockedPotionEffectType;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +62,7 @@ class GemPermissionManagerTest {
         // Mock static Bukkit.getPlayer() to avoid NPE on Bukkit.server
         mockedBukkit = mockStatic(Bukkit.class);
         mockedBukkit.when(() -> Bukkit.getPlayer(any(UUID.class))).thenReturn(null);
+        mockedPotionEffectType = mockStatic(PotionEffectType.class);
         manager = new GemPermissionManager(plugin, gameplayConfig, stateManager);
         manager.setHistoryLogger(historyLogger);
         manager.setAllowanceManager(allowanceManager);
@@ -68,6 +72,9 @@ class GemPermissionManagerTest {
     void tearDown() {
         if (mockedBukkit != null) {
             mockedBukkit.close();
+        }
+        if (mockedPotionEffectType != null) {
+            mockedPotionEffectType.close();
         }
     }
 
@@ -87,6 +94,24 @@ class GemPermissionManagerTest {
         ps.setAppoints(appoints);
         return new GemDefinition.Builder(key)
                 .displayName("Test " + key).powerStructure(ps).build();
+    }
+
+    private GemDefinition createGemDefWithPower(String key, List<String> permissions, List<String> groups,
+            List<EffectConfig> effects, Map<String, AppointDefinition> appoints) {
+        PowerStructure ps = new PowerStructure();
+        ps.setPermissions(permissions != null ? new ArrayList<>(permissions) : new ArrayList<>());
+        ps.setVaultGroups(groups != null ? new ArrayList<>(groups) : new ArrayList<>());
+        ps.setEffects(effects != null ? new ArrayList<>(effects) : new ArrayList<>());
+        ps.setAppoints(appoints != null ? new HashMap<>(appoints) : new HashMap<>());
+        return new GemDefinition.Builder(key)
+                .displayName("Test " + key).powerStructure(ps).build();
+    }
+
+    private PotionEffectType mockPotionEffectType(String name) {
+        PotionEffectType type = mock(PotionEffectType.class);
+        when(type.getName()).thenReturn(name);
+        mockedPotionEffectType.when(() -> PotionEffectType.getByName(name)).thenReturn(type);
+        return type;
     }
 
     // ==================== Owner Key Count ====================
@@ -229,15 +254,24 @@ class GemPermissionManagerTest {
             manager.queueOfflineRevokes(PLAYER_A,
                     Collections.singleton("perm.fly"),
                     Collections.singleton("vip_group"));
+            PotionEffectType speedType = mockPotionEffectType("SPEED");
+            manager.queueOfflineEffectRevokes(PLAYER_A,
+                    Collections.singletonList(new EffectConfig(speedType, 1)));
 
             Player mockPlayer = mock(Player.class);
             when(mockPlayer.getUniqueId()).thenReturn(PLAYER_A);
 
             manager.applyPendingRevokesIfAny(mockPlayer);
 
+            verify(permissionProvider, times(1)).removePermission(mockPlayer, "perm.fly");
+            verify(permissionProvider, times(1)).removeGroup(mockPlayer, "vip_group");
+            verify(mockPlayer, times(1)).removePotionEffect(speedType);
+            verify(mockPlayer, times(1)).recalculatePermissions();
+
             // Pending should be cleared
             assertFalse(manager.getPendingPermRevokes().containsKey(PLAYER_A));
             assertFalse(manager.getPendingGroupRevokes().containsKey(PLAYER_A));
+            assertFalse(manager.getPendingEffectRevokes().containsKey(PLAYER_A));
         }
 
         @Test
@@ -307,7 +341,6 @@ class GemPermissionManagerTest {
             // Manually add pending key revoke
             manager.queueOfflineRevokes(PLAYER_A, null, null);
             // Access internal pending revokes to add key
-            Map<UUID, Set<String>> pendingKeys = manager.getPendingKeyRevokes();
             // We need to add it through the internal mechanism
             // Use reflection-free approach: the pending revoke should already exist
             // Let's directly test the filtering
@@ -352,7 +385,6 @@ class GemPermissionManagerTest {
             // For direct test, manipulate via queueOfflineRevokes then add key manually
             manager.queueOfflineRevokes(PLAYER_A, Collections.singleton("dummy.perm"), null);
             // The pending revoke now exists, add "all" to its keys
-            Map<UUID, Set<String>> pk = manager.getPendingKeyRevokes();
             // pk is a derived view, we can't modify through it
             // Instead, we should populate it directly via internal state
             // Actually, getPendingKeyRevokes() returns a new map, not the internal one
@@ -436,6 +468,141 @@ class GemPermissionManagerTest {
             assertEquals(2, nodes.size());
             assertTrue(nodes.contains("rulegems.appoint.guard"));
             assertTrue(nodes.contains("rulegems.appoint.advisor"));
+        }
+    }
+
+    // ==================== Power Lifecycle ====================
+
+    @Nested
+    class PowerLifecycle {
+
+        @Test
+        void incrementFromZeroOnlineAppliesRedeemAndAppointPower() {
+            Player player = mock(Player.class);
+            PowerStructureManager psm = mock(PowerStructureManager.class);
+            when(player.isOnline()).thenReturn(true);
+            when(plugin.getPowerStructureManager()).thenReturn(psm);
+            mockedBukkit.when(() -> Bukkit.getPlayer(PLAYER_A)).thenReturn(player);
+
+            Map<String, AppointDefinition> appoints = new HashMap<>();
+            appoints.put("guard", new AppointDefinition("guard"));
+            GemDefinition def = createGemDefWithPower("fire_gem",
+                    Collections.singletonList("perm.fire"), Collections.emptyList(),
+                    Collections.emptyList(), appoints);
+
+            manager.incrementOwnerKeyCount(PLAYER_A, "fire_gem", def);
+
+            verify(psm, times(1)).applyStructure(player, def.getPowerStructure(), "gem_redeem", "fire_gem", false);
+
+            ArgumentCaptor<PowerStructure> appointPower = ArgumentCaptor.forClass(PowerStructure.class);
+            verify(psm, times(1)).applyStructure(eq(player), appointPower.capture(), eq("gem_appoint"),
+                    eq("fire_gem"), eq(false));
+            assertTrue(appointPower.getValue().getPermissions().contains("rulegems.appoint.guard"));
+            verify(player, times(1)).recalculatePermissions();
+        }
+
+        @Test
+        void incrementFromOneToTwoDoesNotReapplyPower() {
+            manager.getOwnerKeyCount().computeIfAbsent(PLAYER_A, unused -> new HashMap<>()).put("fire_gem", 1);
+            GemDefinition def = createSimpleGemDef("fire_gem", Collections.singletonList("perm.fire"), null);
+
+            manager.incrementOwnerKeyCount(PLAYER_A, "fire_gem", def);
+
+            verify(plugin, never()).getPowerStructureManager();
+        }
+
+        @Test
+        void decrementLastOnlineGemRemovesRedeemAndAppointPower() {
+            Player player = mock(Player.class);
+            PowerStructureManager psm = mock(PowerStructureManager.class);
+            FeatureManager featureManager = mock(FeatureManager.class);
+            AppointFeature appointFeature = mock(AppointFeature.class);
+            when(player.getUniqueId()).thenReturn(PLAYER_A);
+            when(player.isOnline()).thenReturn(true);
+            when(plugin.getPowerStructureManager()).thenReturn(psm);
+            when(plugin.getFeatureManager()).thenReturn(featureManager);
+            when(featureManager.getAppointFeature()).thenReturn(appointFeature);
+            when(appointFeature.isEnabled()).thenReturn(true);
+            mockedBukkit.when(() -> Bukkit.getPlayer(PLAYER_A)).thenReturn(player);
+
+            Map<String, AppointDefinition> appoints = new HashMap<>();
+            appoints.put("guard", new AppointDefinition("guard"));
+            GemDefinition def = createGemDefWithPower("fire_gem",
+                    Collections.singletonList("perm.fire"), Collections.emptyList(),
+                    Collections.emptyList(), appoints);
+            manager.getOwnerKeyCount().computeIfAbsent(PLAYER_A, unused -> new HashMap<>()).put("fire_gem", 1);
+
+            manager.decrementOwnerKeyCount(PLAYER_A, "fire_gem", def);
+
+            verify(psm, times(1)).removeStructure(player, def.getPowerStructure(), "gem_redeem", "fire_gem");
+
+            ArgumentCaptor<PowerStructure> appointPower = ArgumentCaptor.forClass(PowerStructure.class);
+            verify(psm, times(1)).removeStructure(eq(player), appointPower.capture(), eq("gem_appoint"),
+                    eq("fire_gem"));
+            assertTrue(appointPower.getValue().getPermissions().contains("rulegems.appoint.guard"));
+            verify(appointFeature, times(1)).onAppointerLostPermission(PLAYER_A, "guard");
+            verify(player, times(1)).recalculatePermissions();
+        }
+
+        @Test
+        void decrementLastOfflineGemQueuesPermissionsGroupsEffectsAndKeys() {
+            FeatureManager featureManager = mock(FeatureManager.class);
+            AppointFeature appointFeature = mock(AppointFeature.class);
+            when(plugin.getFeatureManager()).thenReturn(featureManager);
+            when(featureManager.getAppointFeature()).thenReturn(appointFeature);
+            when(appointFeature.isEnabled()).thenReturn(true);
+
+            AppointDefinition guard = new AppointDefinition("guard");
+            Map<String, AppointDefinition> appoints = new HashMap<>();
+            appoints.put("guard", guard);
+            PotionEffectType speedType = mockPotionEffectType("SPEED");
+            GemDefinition def = createGemDefWithPower("fire_gem",
+                    Collections.singletonList("perm.fire"), Collections.singletonList("ruler"),
+                    Collections.singletonList(new EffectConfig(speedType, 1)), appoints);
+            manager.getOwnerKeyCount().computeIfAbsent(PLAYER_A, unused -> new HashMap<>()).put("fire_gem", 1);
+
+            manager.decrementOwnerKeyCount(PLAYER_A, "fire_gem", def);
+
+            assertEquals(Set.of("perm.fire", "rulegems.appoint.guard"), manager.getPendingPermRevokes().get(PLAYER_A));
+            assertEquals(Set.of("ruler"), manager.getPendingGroupRevokes().get(PLAYER_A));
+            assertEquals(Set.of("fire_gem"), manager.getPendingKeyRevokes().get(PLAYER_A));
+            assertEquals(Set.of("SPEED"), manager.getPendingEffectRevokes().get(PLAYER_A));
+            verify(appointFeature, times(1)).onAppointerLostPermission(PLAYER_A, "guard");
+        }
+
+        @Test
+        void restoreRedeemedPermissionsReappliesRedeemAppointAndFullSetPower() {
+            Player player = mock(Player.class);
+            PowerStructureManager psm = mock(PowerStructureManager.class);
+            when(player.getUniqueId()).thenReturn(PLAYER_A);
+            when(plugin.getPowerStructureManager()).thenReturn(psm);
+
+            Map<String, AppointDefinition> appoints = new HashMap<>();
+            appoints.put("guard", new AppointDefinition("guard"));
+            GemDefinition def = createGemDefWithPower("fire_gem",
+                    Collections.singletonList("perm.fire"), Collections.emptyList(),
+                    Collections.emptyList(), appoints);
+            PowerStructure fullSetPower = new PowerStructure();
+            fullSetPower.setPermissions(Collections.singletonList("perm.all"));
+
+            manager.getOwnerKeyCount().computeIfAbsent(PLAYER_A, unused -> new HashMap<>()).put("fire_gem", 1);
+            manager.setFullSetOwner(PLAYER_A);
+            when(stateManager.findGemDefinition("fire_gem")).thenReturn(def);
+            when(gameplayConfig.getRedeemAllPowerStructure()).thenReturn(fullSetPower);
+
+            manager.restoreRedeemedPermissions(player);
+
+            verify(psm, times(1)).clearNamespace(player, "gem_redeem");
+            verify(psm, times(1)).clearNamespace(player, "gem_appoint");
+            verify(psm, times(1)).clearNamespace(player, "gem_redeem_all");
+            verify(psm, times(1)).applyStructure(player, def.getPowerStructure(), "gem_redeem", "fire_gem", false);
+
+            ArgumentCaptor<PowerStructure> appointPower = ArgumentCaptor.forClass(PowerStructure.class);
+            verify(psm, times(1)).applyStructure(eq(player), appointPower.capture(), eq("gem_appoint"),
+                    eq("fire_gem"), eq(false));
+            assertTrue(appointPower.getValue().getPermissions().contains("rulegems.appoint.guard"));
+            verify(psm, times(1)).applyStructure(player, fullSetPower, "gem_redeem_all", "full_set", false);
+            verify(player, times(1)).recalculatePermissions();
         }
     }
 
@@ -550,6 +717,30 @@ class GemPermissionManagerTest {
             manager.revokeAllPlayerPermissions(mockPlayer);
 
             verify(allowanceManager, times(1)).clearPlayerData(PLAYER_A);
+        }
+
+        @Test
+        void clearsNamespacesWhenPowerStructureManagerPresent() {
+            Player mockPlayer = mock(Player.class);
+            PowerStructureManager psm = mock(PowerStructureManager.class);
+            PowerStructure fullSetPower = new PowerStructure();
+            fullSetPower.setPermissions(Collections.singletonList("perm.all"));
+            when(mockPlayer.getUniqueId()).thenReturn(PLAYER_A);
+            when(plugin.getPowerStructureManager()).thenReturn(psm);
+            when(plugin.getLanguageManager()).thenReturn(null);
+            when(gameplayConfig.getRedeemAllPowerStructure()).thenReturn(fullSetPower);
+
+            Runnable mockSave = mock(Runnable.class);
+            manager.setSaveCallback(mockSave);
+            manager.getOwnerKeyCount().computeIfAbsent(PLAYER_A, k -> new HashMap<>()).put("fire_gem", 1);
+            manager.setFullSetOwner(PLAYER_A);
+
+            manager.revokeAllPlayerPermissions(mockPlayer);
+
+            verify(psm, times(1)).clearNamespace(mockPlayer, "gem_redeem");
+            verify(psm, times(1)).clearNamespace(mockPlayer, "gem_appoint");
+            verify(psm, times(1)).clearNamespace(mockPlayer, "gem_inv");
+            verify(psm, times(1)).removeStructure(mockPlayer, fullSetPower, "gem_redeem_all", "full_set");
         }
     }
 

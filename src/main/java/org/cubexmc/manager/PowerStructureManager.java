@@ -32,6 +32,10 @@ public class PowerStructureManager {
     // 已应用的权力结构（用于追踪和撤销）
     private final Map<String, Map<UUID, Set<String>>> appliedStructures = new HashMap<>();
 
+    // 权限与 Vault 组引用计数，避免多个来源共享同一能力时提前移除
+    private final Map<String, Map<UUID, Map<String, Integer>>> permissionRefsByNamespace = new HashMap<>();
+    private final Map<String, Map<UUID, Map<String, Integer>>> groupRefsByNamespace = new HashMap<>();
+
     // 已应用的药水效果（用于追踪和撤销）: namespace -> playerUuid -> sourceId -> List<EffectConfig>
     private final Map<String, Map<UUID, Map<String, List<EffectConfig>>>> appliedEffects = new HashMap<>();
 
@@ -76,14 +80,10 @@ public class PowerStructureManager {
         }
 
         // 应用权限
-        for (String perm : structure.getPermissions()) {
-            if (perm != null && !perm.trim().isEmpty()) {
-                attachment.setPermission(perm, true);
-            }
-        }
+        applyPermissions(playerId, namespace, attachment, structure.getPermissions());
 
         // 应用 Vault 组
-        applyVaultGroups(player, structure.getVaultGroups());
+        applyVaultGroups(player, namespace, structure.getVaultGroups());
 
         // 应用药水效果
         applyEffects(player, structure.getEffects(), namespace, sourceId);
@@ -112,16 +112,12 @@ public class PowerStructureManager {
             PermissionAttachment attachment = namespaceAttachments.get(playerId);
             if (attachment != null) {
                 // 移除权限
-                for (String perm : structure.getPermissions()) {
-                    if (perm != null && !perm.trim().isEmpty()) {
-                        attachment.unsetPermission(perm);
-                    }
-                }
+                removePermissions(playerId, namespace, attachment, structure.getPermissions());
             }
         }
 
         // 移除 Vault 组
-        removeVaultGroups(player, structure.getVaultGroups());
+        removeVaultGroups(player, namespace, structure.getVaultGroups());
 
         // 移除药水效果
         removeEffects(player, structure.getEffects(), namespace, sourceId);
@@ -161,6 +157,8 @@ public class PowerStructureManager {
 
         // 清除所有药水效果
         clearEffectsForPlayer(player, namespace);
+        clearGroupsForPlayer(player, namespace);
+        clearRefsForPlayer(namespace, playerId);
 
         Map<UUID, Set<String>> namespaceApplied = appliedStructures.get(namespace);
         if (namespaceApplied != null) {
@@ -201,28 +199,151 @@ public class PowerStructureManager {
             }
         }
 
+        clearAllGroupsInNamespace(namespace);
+
         appliedStructures.remove(namespace);
+        permissionRefsByNamespace.remove(namespace);
+        groupRefsByNamespace.remove(namespace);
     }
 
     // ==================== Vault 集成 ====================
 
-    private void applyVaultGroups(Player player, List<String> groups) {
+    private void applyVaultGroups(Player player, String namespace, List<String> groups) {
         if (groups == null || groups.isEmpty())
             return;
 
+        UUID playerId = player.getUniqueId();
         for (String group : groups) {
             if (group != null && !group.trim().isEmpty()) {
-                plugin.getPermissionProvider().addGroup(player, group);
+                if (incrementRef(groupRefsByNamespace, namespace, playerId, group.trim()) == 1) {
+                    plugin.getPermissionProvider().addGroup(player, group.trim());
+                }
             }
         }
     }
 
-    private void removeVaultGroups(Player player, List<String> groups) {
+    private void removeVaultGroups(Player player, String namespace, List<String> groups) {
         if (groups == null || groups.isEmpty())
             return;
 
+        UUID playerId = player.getUniqueId();
         for (String group : groups) {
             if (group != null && !group.trim().isEmpty()) {
+                if (decrementRef(groupRefsByNamespace, namespace, playerId, group.trim()) == 0) {
+                    plugin.getPermissionProvider().removeGroup(player, group.trim());
+                }
+            }
+        }
+    }
+
+    private void applyPermissions(UUID playerId, String namespace, PermissionAttachment attachment, List<String> permissions) {
+        if (attachment == null || permissions == null || permissions.isEmpty()) {
+            return;
+        }
+        for (String perm : permissions) {
+            if (perm != null && !perm.trim().isEmpty()) {
+                String normalized = perm.trim();
+                if (incrementRef(permissionRefsByNamespace, namespace, playerId, normalized) == 1) {
+                    attachment.setPermission(normalized, true);
+                }
+            }
+        }
+    }
+
+    private void removePermissions(UUID playerId, String namespace, PermissionAttachment attachment, List<String> permissions) {
+        if (attachment == null || permissions == null || permissions.isEmpty()) {
+            return;
+        }
+        for (String perm : permissions) {
+            if (perm != null && !perm.trim().isEmpty()) {
+                String normalized = perm.trim();
+                if (decrementRef(permissionRefsByNamespace, namespace, playerId, normalized) == 0) {
+                    attachment.unsetPermission(normalized);
+                }
+            }
+        }
+    }
+
+    private int incrementRef(Map<String, Map<UUID, Map<String, Integer>>> refsByNamespace,
+            String namespace, UUID playerId, String key) {
+        Map<UUID, Map<String, Integer>> namespaceRefs = refsByNamespace.computeIfAbsent(namespace, unused -> new HashMap<>());
+        Map<String, Integer> playerRefs = namespaceRefs.computeIfAbsent(playerId, unused -> new HashMap<>());
+        int next = playerRefs.getOrDefault(key, 0) + 1;
+        playerRefs.put(key, next);
+        return next;
+    }
+
+    private int decrementRef(Map<String, Map<UUID, Map<String, Integer>>> refsByNamespace,
+            String namespace, UUID playerId, String key) {
+        Map<UUID, Map<String, Integer>> namespaceRefs = refsByNamespace.get(namespace);
+        if (namespaceRefs == null) {
+            return 0;
+        }
+        Map<String, Integer> playerRefs = namespaceRefs.get(playerId);
+        if (playerRefs == null) {
+            return 0;
+        }
+        int current = playerRefs.getOrDefault(key, 0);
+        if (current <= 1) {
+            playerRefs.remove(key);
+            if (playerRefs.isEmpty()) {
+                namespaceRefs.remove(playerId);
+            }
+            if (namespaceRefs.isEmpty()) {
+                refsByNamespace.remove(namespace);
+            }
+            return 0;
+        }
+        int next = current - 1;
+        playerRefs.put(key, next);
+        return next;
+    }
+
+    private void clearRefsForPlayer(String namespace, UUID playerId) {
+        clearRefMapForPlayer(permissionRefsByNamespace, namespace, playerId);
+        clearRefMapForPlayer(groupRefsByNamespace, namespace, playerId);
+    }
+
+    private void clearRefMapForPlayer(Map<String, Map<UUID, Map<String, Integer>>> refsByNamespace,
+            String namespace, UUID playerId) {
+        Map<UUID, Map<String, Integer>> namespaceRefs = refsByNamespace.get(namespace);
+        if (namespaceRefs == null) {
+            return;
+        }
+        namespaceRefs.remove(playerId);
+        if (namespaceRefs.isEmpty()) {
+            refsByNamespace.remove(namespace);
+        }
+    }
+
+    private void clearGroupsForPlayer(Player player, String namespace) {
+        if (player == null) {
+            return;
+        }
+        Map<UUID, Map<String, Integer>> namespaceRefs = groupRefsByNamespace.get(namespace);
+        if (namespaceRefs == null) {
+            return;
+        }
+        Map<String, Integer> playerRefs = namespaceRefs.get(player.getUniqueId());
+        if (playerRefs == null) {
+            return;
+        }
+        for (String group : new HashSet<>(playerRefs.keySet())) {
+            plugin.getPermissionProvider().removeGroup(player, group);
+        }
+    }
+
+    private void clearAllGroupsInNamespace(String namespace) {
+        Map<UUID, Map<String, Integer>> namespaceRefs = groupRefsByNamespace.get(namespace);
+        if (namespaceRefs == null) {
+            return;
+        }
+        for (Map.Entry<UUID, Map<String, Integer>> entry : namespaceRefs.entrySet()) {
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player == null) {
+                continue;
+            }
+            for (String group : new HashSet<>(entry.getValue().keySet())) {
                 plugin.getPermissionProvider().removeGroup(player, group);
             }
         }
@@ -331,93 +452,6 @@ public class PowerStructureManager {
         }
     }
 
-    /**
-     * 刷新玩家的药水效果（根据条件重新应用）
-     */
-    public void refreshEffectsForPlayer(Player player, String namespace) {
-        UUID playerId = player.getUniqueId();
-
-        Map<UUID, Map<String, List<EffectConfig>>> namespaceEffects = appliedEffects.get(namespace);
-        if (namespaceEffects == null)
-            return;
-
-        Map<String, List<EffectConfig>> playerEffects = namespaceEffects.get(playerId);
-        if (playerEffects == null)
-            return;
-
-        // 重新应用所有效果（用于条件刷新后恢复）
-        for (List<EffectConfig> effectList : playerEffects.values()) {
-            for (EffectConfig effect : effectList) {
-                if (effect != null) {
-                    effect.apply(player);
-                }
-            }
-        }
-    }
-
-    // ==================== 条件刷新 ====================
-
-    /**
-     * 刷新玩家的所有权力结构（根据条件重新应用）
-     * 
-     * @param player            玩家
-     * @param namespace         命名空间
-     * @param structureProvider 结构提供者（sourceId -> PowerStructure）
-     */
-    public void refreshStructures(Player player, String namespace,
-            java.util.function.Function<String, PowerStructure> structureProvider) {
-        if (player == null)
-            return;
-
-        UUID playerId = player.getUniqueId();
-
-        // 获取当前已应用的结构
-        Map<UUID, Set<String>> namespaceApplied = appliedStructures.get(namespace);
-        if (namespaceApplied == null)
-            return;
-
-        Set<String> appliedIds = namespaceApplied.get(playerId);
-        if (appliedIds == null || appliedIds.isEmpty())
-            return;
-
-        // 清除当前附件
-        clearNamespace(player, namespace);
-
-        // 重新应用（会检查条件）
-        for (String sourceId : new ArrayList<>(appliedIds)) {
-            PowerStructure structure = structureProvider.apply(sourceId);
-            if (structure != null) {
-                applyStructure(player, structure, namespace, sourceId, true);
-            }
-        }
-    }
-
-    // ==================== 查询方法 ====================
-
-    /**
-     * 检查玩家是否应用了某个权力结构
-     */
-    public boolean hasApplied(UUID playerId, String namespace, String sourceId) {
-        Map<UUID, Set<String>> namespaceApplied = appliedStructures.get(namespace);
-        if (namespaceApplied == null)
-            return false;
-
-        Set<String> playerApplied = namespaceApplied.get(playerId);
-        return playerApplied != null && playerApplied.contains(sourceId);
-    }
-
-    /**
-     * 获取玩家已应用的权力结构 ID 列表
-     */
-    public Set<String> getAppliedIds(UUID playerId, String namespace) {
-        Map<UUID, Set<String>> namespaceApplied = appliedStructures.get(namespace);
-        if (namespaceApplied == null)
-            return new HashSet<>();
-
-        Set<String> playerApplied = namespaceApplied.get(playerId);
-        return playerApplied != null ? new HashSet<>(playerApplied) : new HashSet<>();
-    }
-
     // ==================== 清理 ====================
 
     /**
@@ -438,6 +472,9 @@ public class PowerStructureManager {
             }
         }
         appliedEffects.clear();
+        for (String namespace : new HashSet<>(groupRefsByNamespace.keySet())) {
+            clearAllGroupsInNamespace(namespace);
+        }
 
         for (Map<UUID, PermissionAttachment> namespaceAttachments : attachmentsByNamespace.values()) {
             for (PermissionAttachment attachment : namespaceAttachments.values()) {
@@ -450,5 +487,7 @@ public class PowerStructureManager {
         }
         attachmentsByNamespace.clear();
         appliedStructures.clear();
+        permissionRefsByNamespace.clear();
+        groupRefsByNamespace.clear();
     }
 }

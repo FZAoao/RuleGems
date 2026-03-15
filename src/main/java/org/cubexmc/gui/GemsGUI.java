@@ -44,17 +44,13 @@ public class GemsGUI extends ChestMenu {
 
     @Override
     protected int getSize() {
-        return manager.GUI_SIZE;
+        return GUIManager.GUI_SIZE;
     }
 
     @Override
     protected GUIHolder.GUIType getHolderType() {
         return GUIHolder.GUIType.GEMS;
     }
-
-    @Override
-    protected void populate(org.bukkit.inventory.Inventory inv, GUIHolder holder) {
-        /* used via open() */ }
 
     private String msg(String path) {
         return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
@@ -108,7 +104,7 @@ public class GemsGUI extends ChestMenu {
         }
 
         int totalItems = allGemIds.size();
-        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / manager.ITEMS_PER_PAGE));
+        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / GUIManager.ITEMS_PER_PAGE));
         page = Math.max(0, Math.min(page, totalPages - 1));
 
         // 创建 GUI
@@ -125,16 +121,23 @@ public class GemsGUI extends ChestMenu {
                 page,
                 filter);
 
-        Inventory gui = Bukkit.createInventory(holder, manager.GUI_SIZE, title);
+        Inventory gui = Bukkit.createInventory(holder, GUIManager.GUI_SIZE, title);
         holder.setInventory(gui);
 
         // 填充装饰和控制栏（启用返回按钮）
         manager.fillDecoration(gui);
         manager.addControlBar(gui, page, totalPages, totalItems, true, true);
+        gui.setItem(GUIManager.SLOT_FILTER, ItemBuilder.filterButton(
+                manager.getNavActionKey(),
+                rawMsg("control.filter"),
+                rawMsg("control.filter_hint") + ": &f" + currentFilterLabel(filter),
+                rawMsg("gems.filter_all"),
+                rawMsg("gems.status_held"),
+                rawMsg("gems.status_placed")));
 
         // 填充宝石内容
-        int startIndex = page * manager.ITEMS_PER_PAGE;
-        int endIndex = Math.min(startIndex + manager.ITEMS_PER_PAGE, totalItems);
+        int startIndex = page * GUIManager.ITEMS_PER_PAGE;
+        int endIndex = Math.min(startIndex + GUIManager.ITEMS_PER_PAGE, totalItems);
 
         for (int i = startIndex; i < endIndex; i++) {
             int slot = i - startIndex;
@@ -177,6 +180,19 @@ public class GemsGUI extends ChestMenu {
 
             return false;
         }).collect(Collectors.toList());
+    }
+
+    private String currentFilterLabel(String filter) {
+        if (filter == null || filter.isEmpty()) {
+            return rawMsg("gems.filter_all");
+        }
+        if ("held".equalsIgnoreCase(filter)) {
+            return rawMsg("gems.status_held");
+        }
+        if ("placed".equalsIgnoreCase(filter)) {
+            return rawMsg("gems.status_placed");
+        }
+        return filter;
     }
 
     /**

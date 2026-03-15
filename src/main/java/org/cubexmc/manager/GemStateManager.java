@@ -259,17 +259,6 @@ public class GemStateManager {
     }
 
     /**
-     * 将放置宝石、持有宝石和玩家名称缓存写入 gemsData。
-     */
-    public void saveData(FileConfiguration gemsData) {
-        Map<String, Object> snapshot = new HashMap<>();
-        populateSaveSnapshot(snapshot);
-        for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
-            gemsData.set(entry.getKey(), entry.getValue());
-        }
-    }
-
-    /**
      * 将将要保存的数据结构提取到快照中，用于线程安全的异步落盘
      */
     public void populateSaveSnapshot(Map<String, Object> snapshot) {
@@ -391,6 +380,10 @@ public class GemStateManager {
      */
     public int getHeldCount() {
         return gemUuidToHolder.size();
+    }
+
+    public Set<Map.Entry<UUID, String>> getAllGemUuidsAndKeys() {
+        return gemUuidToKey.entrySet();
     }
 
     /**
@@ -782,93 +775,5 @@ public class GemStateManager {
         gemUuidToKey.put(gemId, key);
     }
 
-    /**
-     * 输出宝石状态到命令发送者
-     */
-    public void gemStatus(CommandSender sender) {
-        Map<String, String> summary = new HashMap<>();
-        summary.put("count", String.valueOf(gemParser.getRequiredCount()));
-        summary.put("placed_count", String.valueOf(locationToGemUuid.size()));
-        summary.put("held_count", String.valueOf(gemUuidToHolder.size()));
-        languageManager.sendMessage(sender, "gem_status.total_expected", summary);
-        languageManager.sendMessage(sender, "gem_status.total_counts", summary);
-
-        java.util.List<Map.Entry<UUID, String>> entries = new java.util.ArrayList<>(gemUuidToKey.entrySet());
-        entries.sort((a, b) -> {
-            String ka = a.getValue() != null ? a.getValue().toLowerCase() : "";
-            String kb = b.getValue() != null ? b.getValue().toLowerCase() : "";
-            int c = ka.compareTo(kb);
-            if (c != 0)
-                return c;
-            return a.getKey().toString().compareTo(b.getKey().toString());
-        });
-
-        boolean isPlayerSender = sender instanceof Player;
-        for (Map.Entry<UUID, String> ent : entries) {
-            UUID gemId = ent.getKey();
-            String gemKey = ent.getValue();
-            GemDefinition def = gemKey != null ? findGemDefinition(gemKey) : null;
-            String displayName = def != null && def.getDisplayName() != null ? def.getDisplayName() : "Gem";
-
-            String statusText;
-            Player holder = gemUuidToHolder.get(gemId);
-            Location loc = gemUuidToLocation.get(gemId);
-
-            if (holder != null) {
-                Map<String, String> ph = new HashMap<>();
-                ph.put("player", holder.getName());
-                statusText = languageManager.formatMessage("gem_status.status_held", ph);
-            } else if (loc != null) {
-                Map<String, String> ph = new HashMap<>();
-                ph.put("x", String.valueOf(loc.getBlockX()));
-                ph.put("y", String.valueOf(loc.getBlockY()));
-                ph.put("z", String.valueOf(loc.getBlockZ()));
-                ph.put("world", loc.getWorld() != null ? loc.getWorld().getName() : "?");
-                statusText = languageManager.formatMessage("gem_status.status_placed", ph);
-            } else {
-                statusText = languageManager.getMessage("gem_status.status_unknown");
-            }
-
-            Map<String, String> linePh = new HashMap<>();
-            linePh.put("gem_key", gemKey != null ? gemKey : "?");
-            linePh.put("gem_name", displayName);
-            linePh.put("uuid", gemId.toString().substring(0, 8));
-            linePh.put("status", statusText);
-            String plain = languageManager.formatMessage("gem_status.gem_line", linePh);
-
-            if (isPlayerSender) {
-                sendClickableGemStatus((Player) sender, gemId, plain, def);
-            } else {
-                sender.sendMessage(ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', plain)));
-            }
-        }
-    }
-
-    private void sendClickableGemStatus(Player player, UUID gemId, String plain, GemDefinition def) {
-        net.md_5.bungee.api.chat.TextComponent comp = new net.md_5.bungee.api.chat.TextComponent(
-                net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
-                        ChatColor.translateAlternateColorCodes('&', plain)));
-
-        StringBuilder loreBuilder = new StringBuilder();
-        if (def != null && def.getLore() != null && !def.getLore().isEmpty()) {
-            for (String line : def.getLore()) {
-                loreBuilder.append(ChatColor.translateAlternateColorCodes('&', line)).append("\n");
-            }
-        } else {
-            String noMoreInfo = languageManager != null ? languageManager.getMessage("gui.no_more_info")
-                    : "No more info";
-            loreBuilder.append(ChatColor.GRAY).append(noMoreInfo);
-        }
-
-        net.md_5.bungee.api.chat.hover.content.Text text = new net.md_5.bungee.api.chat.hover.content.Text(
-                loreBuilder.toString().trim());
-        comp.setHoverEvent(new net.md_5.bungee.api.chat.HoverEvent(
-                net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT, text));
-
-        String clickCmd = "/rulegems tp " + gemId.toString();
-        comp.setClickEvent(new net.md_5.bungee.api.chat.ClickEvent(
-                net.md_5.bungee.api.chat.ClickEvent.Action.RUN_COMMAND, clickCmd));
-
-        player.spigot().sendMessage(comp);
-    }
+    // gemStatus has been moved to GemStatusView
 }

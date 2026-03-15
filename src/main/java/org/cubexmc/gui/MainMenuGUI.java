@@ -1,10 +1,6 @@
 package org.cubexmc.gui;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.cubexmc.manager.GemManager;
 import org.cubexmc.manager.LanguageManager;
@@ -15,15 +11,19 @@ import org.cubexmc.manager.LanguageManager;
  * 布局 (27格 3x9):
  * ┌─────────────────────────────────────────┐
  * │ ▬ ▬ ▬ ▬ ▬ ▬ ▬ ▬ ▬ │ 装饰行
- * │ ▬ ▬ 💎 ▬ ▬ ▬ 👑 ▬ ▬ │ 功能行
+ * │ ▬ 💎 👤 💠 👑 🏛 🧭 ▬ │ 功能行
  * │ ▬ ▬ ▬ ▬ ✕ ▬ ▬ ▬ ▬ │ 控制行
  * └─────────────────────────────────────────┘
  */
 public class MainMenuGUI extends ChestMenu {
 
     private static final int GUI_SIZE = 27;
-    private static final int SLOT_GEMS = 11;
-    private static final int SLOT_RULERS = 15;
+    private static final int SLOT_GEMS = 10;
+    private static final int SLOT_PROFILE = 11;
+    private static final int SLOT_REDEEM = 12;
+    private static final int SLOT_RULERS = 14;
+    private static final int SLOT_CABINET = 15;
+    private static final int SLOT_NAVIGATE = 16;
     private static final int SLOT_CLOSE = 22;
 
     private final GemManager gemManager;
@@ -70,7 +70,11 @@ public class MainMenuGUI extends ChestMenu {
             gui.setItem(i, filler);
 
         gui.setItem(SLOT_GEMS, createGemsButton(gemManager.getAllGemUuids().size(), holder.isAdmin()));
+        gui.setItem(SLOT_PROFILE, createProfileButton());
+        gui.setItem(SLOT_REDEEM, createRedeemGuideButton());
         gui.setItem(SLOT_RULERS, createRulersButton(gemManager.getCurrentRulers().size(), holder.isAdmin()));
+        gui.setItem(SLOT_CABINET, createCabinetButton(holder));
+        gui.setItem(SLOT_NAVIGATE, createNavigateButton());
         gui.setItem(SLOT_CLOSE, ItemBuilder.closeButton(manager.getNavActionKey(), rawMsg("control.close")));
     }
 
@@ -128,6 +132,116 @@ public class MainMenuGUI extends ChestMenu {
         builder.addEmptyLore()
                 .addLore("&a» " + rawMsg("menu.click_to_open"));
 
+        return builder.build();
+    }
+
+    private ItemStack createRedeemGuideButton() {
+        boolean redeemEnabled = manager.getPlugin().getGameplayConfig().isRedeemEnabled();
+        boolean redeemAllEnabled = manager.getPlugin().getGameplayConfig().isFullSetGrantsAllEnabled();
+        boolean holdEnabled = manager.getPlugin().getGameplayConfig().isHoldToRedeemEnabled();
+        boolean placeEnabled = manager.getPlugin().getGameplayConfig().isPlaceRedeemEnabled();
+        boolean sneakToRedeem = manager.getPlugin().getGameplayConfig().isSneakToRedeem();
+
+        ItemBuilder builder = new ItemBuilder(Material.EMERALD)
+                .name("&a" + rawMsg("menu.redeem_title"))
+                .data(manager.getNavActionKey(), "show_redeem_help")
+                .glow();
+
+        builder.addEmptyLore()
+                .addLore("&7" + rawMsg("menu.redeem_desc"))
+                .addEmptyLore();
+
+        if (redeemEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_command"));
+        } else {
+            builder.addLore("&c▸ " + rawMsg("menu.redeem_disabled"));
+        }
+
+        if (holdEnabled) {
+            builder.addLore("&e▸ " + rawMsg(sneakToRedeem ? "menu.redeem_hold_sneak" : "menu.redeem_hold_normal"));
+        }
+
+        if (placeEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_altar"));
+        }
+
+        if (redeemAllEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_all"));
+        }
+
+        builder.addEmptyLore()
+                .addLore("&8" + rawMsg("menu.info_only"));
+        return builder.build();
+    }
+
+    private ItemStack createProfileButton() {
+        return new ItemBuilder(Material.BOOK)
+                .name("&b" + rawMsg("menu.profile_title"))
+                .addEmptyLore()
+                .addLore("&7" + rawMsg("menu.profile_desc"))
+                .addEmptyLore()
+                .addLore("&a» " + rawMsg("menu.click_to_open"))
+                .data(manager.getNavActionKey(), "open_profile")
+                .hideAttributes()
+                .build();
+    }
+
+    private ItemStack createCabinetButton(GUIHolder holder) {
+        boolean appointEnabled = manager.getPlugin().getFeatureManager() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature().isEnabled();
+        org.bukkit.entity.Player viewer = manager.getPlugin().getServer().getPlayer(holder.getViewerId());
+        boolean canManageAppointments = appointEnabled && holder.isAdmin();
+        if (!canManageAppointments && appointEnabled && viewer != null && manager.getPlugin().getFeatureManager() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature() != null) {
+            canManageAppointments = manager.getPlugin().getFeatureManager().getAppointFeature()
+                    .getAppointDefinitions().keySet().stream()
+                    .anyMatch(key -> viewer.hasPermission("rulegems.appoint." + key)
+                            || viewer.hasPermission("rulegems.appoint."
+                                    + key.toLowerCase(java.util.Locale.ROOT)));
+        }
+
+        ItemBuilder builder = new ItemBuilder(Material.WRITABLE_BOOK)
+                .name("&d" + rawMsg("menu.cabinet_title"))
+                .addEmptyLore()
+                .addLore("&7" + rawMsg("menu.cabinet_desc"))
+                .addEmptyLore();
+
+        if (canManageAppointments) {
+            builder.addLore("&a» " + rawMsg("menu.click_to_open"))
+                    .data(manager.getNavActionKey(), "open_cabinet")
+                    .glow();
+        } else {
+            builder.addLore("&8" + rawMsg("menu.info_only"))
+                    .addLore("&7" + rawMsg("menu.cabinet_unavailable"))
+                    .hideAttributes();
+        }
+        return builder.build();
+    }
+
+    private ItemStack createNavigateButton() {
+        boolean navigateEnabled = manager.getPlugin().getFeatureManager() != null
+                && manager.getPlugin().getFeatureManager().getNavigator() != null
+                && manager.getPlugin().getFeatureManager().getNavigator().isEnabled();
+
+        ItemBuilder builder = new ItemBuilder(Material.COMPASS)
+                .name("&e" + rawMsg("menu.navigate_title"))
+                .data(manager.getNavActionKey(), "show_navigate_help")
+                .hideAttributes();
+
+        builder.addEmptyLore()
+                .addLore("&7" + rawMsg("menu.navigate_desc"))
+                .addEmptyLore();
+
+        if (navigateEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.navigate_hint"));
+            builder.addLore("&e▸ " + rawMsg("menu.navigate_permission"));
+        } else {
+            builder.addLore("&c▸ " + rawMsg("menu.navigate_disabled"));
+        }
+
+        builder.addEmptyLore()
+                .addLore("&8" + rawMsg("menu.info_only"));
         return builder.build();
     }
 }

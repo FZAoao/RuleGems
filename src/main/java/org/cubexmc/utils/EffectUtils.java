@@ -76,22 +76,27 @@ public class EffectUtils {
         }
     }
 
+    public void playLocalSound(Location location, String soundName, float volume, float pitch) {
+        if (location == null || location.getWorld() == null || soundName == null) {
+            return;
+        }
+        try {
+            Sound sound = Sound.valueOf(soundName);
+            SchedulerUtil.regionRun(plugin, location, () -> {
+                if (location.getWorld() != null) {
+                    location.getWorld().playSound(location, sound, volume, pitch);
+                }
+            }, 0L, -1L);
+        } catch (Exception ex) {
+            plugin.getLogger().log(Level.WARNING, "[RuleGems] Invalid sound name: {0}", soundName);
+        }
+    }
+
     public void playLocalSound(Location location, ExecuteConfig execCfg, float volume, float pitch) {
         if (execCfg == null || location == null || location.getWorld() == null) {
             return;
         }
-        if (execCfg.getSound() != null) {
-            try {
-                Sound sound = Sound.valueOf(execCfg.getSound());
-                SchedulerUtil.regionRun(plugin, location, () -> {
-                    if (location.getWorld() != null) {
-                        location.getWorld().playSound(location, sound, volume, pitch);
-                    }
-                }, 0L, -1L);
-            } catch (Exception ex) {
-                plugin.getLogger().log(Level.WARNING, "[RuleGems] Invalid sound name: {0}", execCfg.getSound());
-            }
-        }
+        playLocalSound(location, execCfg.getSound(), volume, pitch);
     }
 
     public void playParticle(Location location, ExecuteConfig execCfg) {
@@ -115,6 +120,19 @@ public class EffectUtils {
             } catch (Exception ex) {
                 plugin.getLogger().log(Level.WARNING, "[RuleGems] Invalid particle name: {0}", execCfg.getParticle());
             }
+        }
+    }
+
+    public void sendActionBar(Player player, String text) {
+        if (player == null || text == null || text.isEmpty()) return;
+        try {
+            player.spigot().sendMessage(
+                net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                new net.md_5.bungee.api.chat.TextComponent(text)
+            );
+        } catch (Throwable t) {
+            // fallback for older/incompatible versions
+            player.sendMessage(text);
         }
     }
 }

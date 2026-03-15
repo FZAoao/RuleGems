@@ -45,33 +45,39 @@ public class GUIManager implements Listener {
     public static final int SLOT_NEXT = 53; // 下一页
 
     private final RuleGems plugin;
-    private final GemManager gemManager;
     private final LanguageManager lang;
 
     // 持久化数据键
     private final NamespacedKey gemIdKey;
     private final NamespacedKey navActionKey;
     private final NamespacedKey playerUuidKey;
+    private final NamespacedKey appointKeyKey;
 
     private final MainMenuGUI mainMenuGUI;
     private final GemsGUI gemsGUI;
     private final RulersGUI rulersGUI;
     private final RulerAppointeesGUI rulerAppointeesGUI;
+    private final ProfileGUI profileGUI;
+    private final CabinetGUI cabinetGUI;
+    private final CabinetMembersGUI cabinetMembersGUI;
 
     public GUIManager(RuleGems plugin, GemManager gemManager, LanguageManager languageManager) {
         this.plugin = plugin;
-        this.gemManager = gemManager;
         this.lang = languageManager;
 
         this.gemIdKey = new NamespacedKey(plugin, "gem_id");
         this.navActionKey = new NamespacedKey(plugin, "nav_action");
         this.playerUuidKey = new NamespacedKey(plugin, "player_uuid");
+        this.appointKeyKey = new NamespacedKey(plugin, "appoint_key");
 
         // 初始化各个 GUI
         this.mainMenuGUI = new MainMenuGUI(this, gemManager, languageManager);
         this.gemsGUI = new GemsGUI(this, gemManager, languageManager);
         this.rulersGUI = new RulersGUI(this, gemManager, languageManager);
         this.rulerAppointeesGUI = new RulerAppointeesGUI(this, gemManager, languageManager, plugin);
+        this.profileGUI = new ProfileGUI(this, gemManager, languageManager, plugin);
+        this.cabinetGUI = new CabinetGUI(this, gemManager, languageManager, plugin);
+        this.cabinetMembersGUI = new CabinetMembersGUI(this, gemManager, languageManager, plugin);
 
         // 注册事件监听器
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -89,6 +95,10 @@ public class GUIManager implements Listener {
 
     public NamespacedKey getPlayerUuidKey() {
         return playerUuidKey;
+    }
+
+    public NamespacedKey getAppointKeyKey() {
+        return appointKeyKey;
     }
 
     public RuleGems getPlugin() {
@@ -160,6 +170,44 @@ public class GUIManager implements Listener {
         rulerAppointeesGUI.open(player, rulerUuid, isAdmin, page);
     }
 
+    public void openProfileGUI(Player player) {
+        openProfileGUI(player, 0);
+    }
+
+    public void openProfileGUI(Player player, int page) {
+        profileGUI.open(player, page);
+    }
+
+    public void openCabinetGUI(Player player) {
+        openCabinetGUI(player, 0);
+    }
+
+    public void openCabinetGUI(Player player, int page) {
+        cabinetGUI.open(player, page);
+    }
+
+    public void openCabinetMembersGUI(Player player, String appointKey) {
+        openCabinetMembersGUI(player, appointKey, 0);
+    }
+
+    public void openCabinetMembersGUI(Player player, String appointKey, int page) {
+        cabinetMembersGUI.open(player, appointKey, page);
+    }
+
+    public boolean canOpenCabinet(Player player) {
+        if (player == null || plugin.getFeatureManager() == null || plugin.getFeatureManager().getAppointFeature() == null
+                || !plugin.getFeatureManager().getAppointFeature().isEnabled()) {
+            return false;
+        }
+        if (player.hasPermission("rulegems.admin")) {
+            return true;
+        }
+        return plugin.getFeatureManager().getAppointFeature().getAppointDefinitions().keySet().stream()
+                .anyMatch(key -> player.hasPermission("rulegems.appoint." + key)
+                        || player.hasPermission("rulegems.appoint."
+                                + key.toLowerCase(java.util.Locale.ROOT)));
+    }
+
     // ========== 布局辅助方法 ==========
 
     /**
@@ -198,7 +246,7 @@ public class GUIManager implements Listener {
         }
 
         // 筛选按钮（可选）
-        if (showFilter) {
+        if (showFilter && isFilterImplemented()) {
             gui.setItem(SLOT_FILTER, new ItemBuilder(Material.HOPPER)
                     .name("&e" + rawMsg("control.filter"))
                     .addLore("&7" + rawMsg("control.filter_hint"))
@@ -271,6 +319,10 @@ public class GUIManager implements Listener {
         }
     }
 
+    private boolean isFilterImplemented() {
+        return true;
+    }
+
     /**
      * Maps a GUIHolder type to its corresponding ChestMenu instance.
      */
@@ -282,6 +334,12 @@ public class GUIManager implements Listener {
                 return rulersGUI;
             case RULER_APPOINTEES:
                 return rulerAppointeesGUI;
+            case PROFILE:
+                return profileGUI;
+            case CABINET:
+                return cabinetGUI;
+            case CABINET_MEMBERS:
+                return cabinetMembersGUI;
             case MAIN_MENU:
                 return mainMenuGUI;
             default:
@@ -295,29 +353,22 @@ public class GUIManager implements Listener {
     private void handleNavigation(Player player, GUIHolder holder, String action) {
         switch (action) {
             case "prev":
-                navigatePage(player, holder, -1);
+                reopenCurrentGUI(player, holder, Math.max(0, holder.getPage() - 1));
                 break;
             case "next":
-                navigatePage(player, holder, 1);
+                reopenCurrentGUI(player, holder, Math.max(0, holder.getPage() + 1));
                 break;
             case "close":
                 player.closeInventory();
                 break;
             case "refresh":
-                refreshGUI(player, holder);
+                reopenCurrentGUI(player, holder, holder.getPage());
                 break;
             case "back":
-                // 返回上一级
-                if (holder.getType() == GUIHolder.GUIType.RULER_APPOINTEES) {
-                    // 从任命详情返回到统治者列表
-                    openRulersGUI(player, holder.isAdmin());
-                } else {
-                    // 其他情况返回主菜单
-                    openMainMenu(player, holder.isAdmin());
-                }
+                openBackDestination(player, holder);
                 break;
             case "filter":
-                // 循环切换筛选（暂未实现）
+                cycleGemFilter(player, holder);
                 break;
             case "open_gems":
                 // 从主菜单打开宝石列表
@@ -327,63 +378,141 @@ public class GUIManager implements Listener {
                 // 从主菜单打开统治者列表
                 openRulersGUI(player, holder.isAdmin());
                 break;
-        }
-    }
-
-    /**
-     * 翻页
-     */
-    private void navigatePage(Player player, GUIHolder holder, int delta) {
-        int newPage = Math.max(0, holder.getPage() + delta);
-
-        switch (holder.getType()) {
-            case GEMS:
-                openGemsGUI(player, holder.isAdmin(), newPage, holder.getFilter());
+            case "show_redeem_help":
+                sendRedeemGuide(player);
                 break;
-            case RULERS:
-                openRulersGUI(player, holder.isAdmin(), newPage);
+            case "show_navigate_help":
+                sendNavigateGuide(player);
                 break;
-            case RULER_APPOINTEES:
-                if (holder.getFilter() != null) {
-                    try {
-                        UUID rulerUuid = UUID.fromString(holder.getFilter());
-                        openRulerAppointeesGUI(player, rulerUuid, holder.isAdmin(), newPage);
-                    } catch (Exception e) {
-                        plugin.getLogger().fine("Failed to parse ruler UUID for page navigation: " + e.getMessage());
-                    }
-                }
+            case "open_profile":
+                openProfileGUI(player);
                 break;
-            default:
+            case "open_cabinet":
+                openCabinetFromMenu(player);
                 break;
         }
     }
 
+    private void openCabinetFromMenu(Player player) {
+        if (plugin.getFeatureManager() == null || plugin.getFeatureManager().getAppointFeature() == null
+                || !plugin.getFeatureManager().getAppointFeature().isEnabled()) {
+            lang.sendMessage(player, "command.appoint.disabled");
+            return;
+        }
+        if (!canOpenCabinet(player)) {
+            lang.sendMessage(player, "command.no_permission");
+            return;
+        }
+        openCabinetGUI(player);
+    }
+
+    private void cycleGemFilter(Player player, GUIHolder holder) {
+        if (holder.getType() != GUIHolder.GUIType.GEMS) {
+            return;
+        }
+        String current = holder.getContext();
+        String next;
+        if (current == null || current.isEmpty()) {
+            next = "held";
+        } else if ("held".equalsIgnoreCase(current)) {
+            next = "placed";
+        } else {
+            next = null;
+        }
+        openGemsGUI(player, holder.isAdmin(), 0, next);
+    }
+
+    private void sendRedeemGuide(Player player) {
+        lang.sendMessage(player, "command.help.section_player");
+        if (plugin.getGameplayConfig().isRedeemEnabled() && player.hasPermission("rulegems.redeem")) {
+            lang.sendMessage(player, "command.help.redeem");
+        }
+        if (plugin.getGameplayConfig().isHoldToRedeemEnabled()
+                && plugin.getGameplayConfig().isRedeemEnabled()
+                && player.hasPermission("rulegems.redeem")) {
+            lang.sendMessage(player, plugin.getGameplayConfig().isSneakToRedeem()
+                    ? "command.help.hold_redeem_sneak"
+                    : "command.help.hold_redeem_normal");
+        }
+        if (plugin.getGameplayConfig().isPlaceRedeemEnabled()) {
+            lang.sendMessage(player, "command.help.place_redeem");
+        }
+        if (plugin.getGameplayConfig().isFullSetGrantsAllEnabled()
+                && player.hasPermission("rulegems.redeemall")) {
+            lang.sendMessage(player, "command.help.redeemall");
+        }
+    }
+
+    private void sendNavigateGuide(Player player) {
+        lang.sendMessage(player, "command.help.section_player");
+        if (plugin.getFeatureManager() != null
+                && plugin.getFeatureManager().getNavigator() != null
+                && plugin.getFeatureManager().getNavigator().isEnabled()
+                && player.hasPermission("rulegems.navigate")) {
+            lang.sendMessage(player, "command.help.navigate");
+        } else {
+            player.sendMessage(ChatColor.translateAlternateColorCodes('&', rawMsg("menu.navigate_disabled_chat")));
+        }
+    }
+
+    private void openBackDestination(Player player, GUIHolder holder) {
+        if (holder.getType() == GUIHolder.GUIType.RULER_APPOINTEES) {
+            openRulersGUI(player, holder.isAdmin());
+            return;
+        }
+        if (holder.getType() == GUIHolder.GUIType.CABINET_MEMBERS) {
+            openCabinetGUI(player);
+            return;
+        }
+        openMainMenu(player, holder.isAdmin());
+    }
+
     /**
-     * 刷新当前 GUI
+     * 按 holder 当前状态重新打开同一个 GUI，可用于翻页和刷新。
      */
-    private void refreshGUI(Player player, GUIHolder holder) {
+    private void reopenCurrentGUI(Player player, GUIHolder holder, int page) {
         switch (holder.getType()) {
             case MAIN_MENU:
                 openMainMenu(player, holder.isAdmin());
                 break;
             case GEMS:
-                openGemsGUI(player, holder.isAdmin(), holder.getPage(), holder.getFilter());
+                openGemsGUI(player, holder.isAdmin(), page, holder.getContext());
                 break;
             case RULERS:
-                openRulersGUI(player, holder.isAdmin(), holder.getPage());
+                openRulersGUI(player, holder.isAdmin(), page);
                 break;
             case RULER_APPOINTEES:
-                if (holder.getFilter() != null) {
-                    try {
-                        UUID rulerUuid = UUID.fromString(holder.getFilter());
-                        openRulerAppointeesGUI(player, rulerUuid, holder.isAdmin(), holder.getPage());
-                    } catch (Exception e) {
-                        plugin.getLogger().fine("Failed to parse ruler UUID for GUI refresh: " + e.getMessage());
-                    }
+                UUID rulerUuid = parseContextUuid(holder, "GUI reopen");
+                if (rulerUuid != null) {
+                    openRulerAppointeesGUI(player, rulerUuid, holder.isAdmin(), page);
+                }
+                break;
+            case PROFILE:
+                openProfileGUI(player, page);
+                break;
+            case CABINET:
+                openCabinetGUI(player, page);
+                break;
+            case CABINET_MEMBERS:
+                if (holder.getContext() != null) {
+                    openCabinetMembersGUI(player, holder.getContext(), page);
                 }
                 break;
             default:
                 break;
+        }
+    }
+
+    private UUID parseContextUuid(GUIHolder holder, String source) {
+        String context = holder.getContext();
+        if (context == null || context.isEmpty()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(context);
+        } catch (Exception e) {
+            plugin.getLogger().fine("Failed to parse holder UUID context during " + source + ": " + e.getMessage());
+            return null;
         }
     }
 

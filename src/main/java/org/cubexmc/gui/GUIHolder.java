@@ -17,10 +17,10 @@ public class GUIHolder implements InventoryHolder {
         MAIN_MENU,          // 主菜单
         GEMS,               // 宝石列表
         RULERS,             // 统治者列表
-        GEM_DETAIL,         // 宝石详情
-        RULER_DETAIL,       // 统治者详情
-        RULER_APPOINTEES,   // 统治者任命详情
-        CONFIRM             // 确认对话框
+        PROFILE,            // 玩家个人状态
+        CABINET,            // 委任职位总览
+        CABINET_MEMBERS,    // 某职位的任命/解雇界面
+        RULER_APPOINTEES    // 统治者任命详情
     }
 
     private final GUIType type;
@@ -57,7 +57,7 @@ public class GUIHolder implements InventoryHolder {
      * @param viewerId 查看者 UUID
      * @param isAdmin 是否为管理员视图
      * @param page 当前页码
-     * @param filter 筛选条件
+     * @param filter 额外上下文；可用于筛选条件、目标 UUID 或 appointKey
      */
     public GUIHolder(GUIType type, UUID viewerId, boolean isAdmin, int page, String filter) {
         this.type = type;
@@ -109,7 +109,16 @@ public class GUIHolder implements InventoryHolder {
     }
 
     /**
-     * 获取筛选条件
+     * 获取额外上下文。
+     * 对 GEMS 来说是筛选条件；对其他分页界面可能是目标 UUID 或 appointKey。
+     */
+    public String getContext() {
+        return filter;
+    }
+
+    /**
+     * 获取筛选条件/上下文。
+     * 保留该命名用于兼容旧调用点，优先使用 {@link #getContext()}。
      */
     public String getFilter() {
         return filter;
@@ -129,15 +138,5 @@ public class GUIHolder implements InventoryHolder {
         return null;
     }
 
-    /**
-     * 检查 Inventory 是否为指定类型的 GUI
-     * @param inventory 待检查的 Inventory
-     * @param type 期望的类型
-     * @return 是否匹配
-     */
-    public static boolean isType(Inventory inventory, GUIType type) {
-        GUIHolder holder = getHolder(inventory);
-        return holder != null && holder.getType() == type;
-    }
 }
 

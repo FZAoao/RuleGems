@@ -142,17 +142,6 @@ public class GemAllowanceManager {
     }
 
     /**
-     * 将命令限次数据写入 gemsData。
-     */
-    public void saveData(FileConfiguration gemsData) {
-        Map<String, Object> snapshot = new HashMap<>();
-        populateSaveSnapshot(snapshot);
-        for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
-            gemsData.set(entry.getKey(), entry.getValue());
-        }
-    }
-
-    /**
      * 将将要保存的数据结构提取到快照中，用于线程安全的异步落盘
      */
     public void populateSaveSnapshot(Map<String, Object> snapshot) {
@@ -611,13 +600,6 @@ public class GemAllowanceManager {
             saveCallback.run();
         }
         dirty = false;
-    }
-
-    /**
-     * 标记数据已变更，等待下一次定时刷盘，并使指定玩家的标签缓存失效。
-     */
-    private void markDirty() {
-        dirty = true;
     }
 
     /**

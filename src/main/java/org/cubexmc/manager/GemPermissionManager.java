@@ -85,7 +85,10 @@ public class GemPermissionManager {
             saveCallback.run();
     }
 
-    /** 懒获取 PowerStructureManager（通过 plugin 引用避免循环依赖） */
+    /**
+     * 懒获取 PowerStructureManager（通过 plugin 引用避免循环依赖）。
+     * 正常运行时该实例应始终存在；保留 null 兼容仅用于防御性启动阶段和隔离单测。
+     */
     private PowerStructureManager getPSM() {
         return plugin.getPowerStructureManager();
     }
@@ -171,6 +174,55 @@ public class GemPermissionManager {
         fullSetOwner = null;
     }
 
+    /**
+     * 清理所有运行时权限状态，用于 scatter/reload 前确保在线玩家不会保留旧权力。
+     */
+    public void clearRuntimeState() {
+        PowerStructureManager psm = getPSM();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            clearRuntimeState(player, psm);
+        }
+        invAttachments.clear();
+        redeemAttachments.clear();
+        clearAll();
+    }
+
+    private void clearRuntimeState(Player player, PowerStructureManager psm) {
+        if (player == null) {
+            return;
+        }
+        if (psm != null) {
+            psm.clearNamespace(player, "gem_redeem");
+            psm.clearNamespace(player, "gem_appoint");
+            psm.clearNamespace(player, "gem_redeem_all");
+            psm.clearNamespace(player, "gem_inv");
+        }
+
+        PermissionAttachment invAtt = invAttachments.remove(player.getUniqueId());
+        if (invAtt != null) {
+            try {
+                player.removeAttachment(invAtt);
+            } catch (Throwable e) {
+                plugin.getLogger().fine("Failed to remove inv permission attachment: " + e.getMessage());
+            }
+        }
+
+        PermissionAttachment redAtt = redeemAttachments.remove(player.getUniqueId());
+        if (redAtt != null) {
+            try {
+                player.removeAttachment(redAtt);
+            } catch (Throwable e) {
+                plugin.getLogger().fine("Failed to remove redeem permission attachment: " + e.getMessage());
+            }
+        }
+
+        try {
+            player.recalculatePermissions();
+        } catch (Throwable e) {
+            plugin.getLogger().fine("Failed to recalculate permissions during runtime state clear: " + e.getMessage());
+        }
+    }
+
     // ==================== 加载 / 保存 ====================
 
     /**
@@ -241,21 +293,84 @@ public class GemPermissionManager {
         loadPendingRevokes(gemsData);
     }
 
-    private void loadPendingSection(FileConfiguration data, String path, Map<UUID, Set<String>> target) {
-        ConfigurationSection section = data.getConfigurationSection(path);
-        if (section == null)
+    /**
+     * 基于已保存的 gem 归属重建 ownerKeyCount。
+     *
+     * <p>ownerKeyCount 是运行时缓存，不会持久化；插件重启或重载后需要从
+     * redeem_owner_by_id 和当前 gemId -> gemKey 映射重新计算。</p>
+     */
+    public void rebuildOwnerKeyCountFromOwnership() {
+        ownerKeyCount.clear();
+
+        for (Map.Entry<UUID, UUID> entry : gemIdToRedeemer.entrySet()) {
+            UUID gemId = entry.getKey();
+            UUID owner = entry.getValue();
+            if (gemId == null || owner == null)
+                continue;
+
+            String key = stateManager.getGemUuidToKey().get(gemId);
+            if (key == null || key.trim().isEmpty())
+                continue;
+
+            String normalizedKey = key.toLowerCase(ROOT_LOCALE);
+            ownerKeyCount.computeIfAbsent(owner, unused -> new HashMap<>())
+                    .merge(normalizedKey, 1, Integer::sum);
+        }
+    }
+
+    /**
+     * 为单个在线玩家恢复已兑换宝石、appoint 和 full-set 权限。
+     */
+    public void restoreRedeemedPermissions(Player player) {
+        if (player == null)
             return;
-        for (String pid : section.getKeys(false)) {
-            try {
-                UUID id = UUID.fromString(pid);
-                List<String> list = section.getStringList(pid);
-                if (list != null && !list.isEmpty()) {
-                    target.put(id, new HashSet<>(list));
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to load pending revoke entry for '" + pid + "' at path '" + path
-                        + "': " + e.getMessage());
+
+        UUID playerId = player.getUniqueId();
+        PowerStructureManager psm = getPSM();
+
+        if (psm != null) {
+            psm.clearNamespace(player, "gem_redeem");
+            psm.clearNamespace(player, "gem_appoint");
+            psm.clearNamespace(player, "gem_redeem_all");
+        }
+
+        Map<String, Integer> ownedKeys = ownerKeyCount.getOrDefault(playerId, Collections.emptyMap());
+        for (Map.Entry<String, Integer> entry : ownedKeys.entrySet()) {
+            if (entry.getValue() == null || entry.getValue() <= 0)
+                continue;
+
+            String key = entry.getKey();
+            GemDefinition def = stateManager.findGemDefinition(key);
+            if (def == null)
+                continue;
+
+            if (psm != null && def.getPowerStructure() != null) {
+                psm.applyStructure(player, def.getPowerStructure(), "gem_redeem", key, false);
             }
+            grantAppointPermissions(player, def);
+        }
+
+        if (fullSetOwner != null && fullSetOwner.equals(playerId)) {
+            PowerStructure redeemAllPower = gameplayConfig.getRedeemAllPowerStructure();
+            if (redeemAllPower != null && redeemAllPower.hasAnyContent()) {
+                if (psm != null) {
+                    psm.applyStructure(player, redeemAllPower, "gem_redeem_all", "full_set", false);
+                } else if (redeemAllPower.getPermissions() != null) {
+                    grantRedeemPermissions(player, redeemAllPower.getPermissions());
+                }
+            }
+        }
+
+        player.recalculatePermissions();
+    }
+
+    /**
+     * 重建归属缓存，并为所有在线玩家恢复已兑换权限。
+     */
+    public void restoreRedeemedPermissionsForOnlinePlayers() {
+        rebuildOwnerKeyCountFromOwnership();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            restoreRedeemedPermissions(player);
         }
     }
 
@@ -289,17 +404,6 @@ public class GemPermissionManager {
                             + "' at path 'pending_revokes." + cat + "': " + e.getMessage());
                 }
             }
-        }
-    }
-
-    /**
-     * 将兑换归属、已兑换 key、全套拥有者和离线撤销队列写入 gemsData。
-     */
-    public void saveData(FileConfiguration gemsData) {
-        Map<String, Object> snapshot = new HashMap<>();
-        populateSaveSnapshot(snapshot);
-        for (Map.Entry<String, Object> entry : snapshot.entrySet()) {
-            gemsData.set(entry.getKey(), entry.getValue());
         }
     }
 
@@ -740,11 +844,23 @@ public class GemPermissionManager {
             if (previouslyActive.contains(k))
                 selectedKeys.add(k);
         }
+        boolean hasConflict = false;
         for (String k : presentKeysOrdered) {
             if (selectedKeys.contains(k))
                 continue;
-            if (!conflictsWithSelected(k, selectedKeys))
+            if (!conflictsWithSelected(k, selectedKeys)) {
                 selectedKeys.add(k);
+            } else {
+                hasConflict = true;
+            }
+        }
+
+        if (hasConflict) {
+            // 给玩家发送一个 Actionbar 提示，告知有互斥宝石
+            LanguageManager lm = plugin.getLanguageManager();
+            if (lm != null) {
+                plugin.getEffectUtils().sendActionBar(player, lm.translateColorCodes(lm.getMessage("inventory.conflict")));
+            }
         }
 
         // 找出需要移除/新增的 keys
@@ -804,7 +920,7 @@ public class GemPermissionManager {
     /**
      * 检查候选 key 是否与已选择的 key 冲突
      */
-    private boolean conflictsWithSelected(String candidateKey, Set<String> selectedKeys) {
+    public boolean conflictsWithSelected(String candidateKey, Set<String> selectedKeys) {
         GemDefinition c = stateManager.findGemDefinition(candidateKey);
         Set<String> cm = new HashSet<>();
         if (c != null && c.getMutualExclusive() != null) {

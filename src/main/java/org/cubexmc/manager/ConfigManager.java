@@ -69,7 +69,7 @@ public class ConfigManager {
         ensurePowersFolder();
         initGemsFolder();
 
-        this.language = config.getString("language", "zh");
+        this.language = config.getString("language", "zh_CN");
 
         // 1) 加载权力结构模板
         gemParser.loadPowerTemplates(plugin.getDataFolder());

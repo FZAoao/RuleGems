@@ -7,13 +7,12 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockDamageEvent;
 
-import org.cubexmc.RuleGems;
 import org.cubexmc.manager.GemManager;
 
 public class GemPlaceListener implements Listener {
     private final GemManager gemManager;
 
-    public GemPlaceListener(RuleGems plugin, GemManager gemManager) {
+    public GemPlaceListener(GemManager gemManager) {
         this.gemManager = gemManager;
     }
 
@@ -22,17 +21,17 @@ public class GemPlaceListener implements Listener {
     // ignoreCancelled = true 确保被取消的事件不会触发宝石放置逻辑
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-        gemManager.onGemPlaced(event);
+        gemManager.handleGemBlockPlace(event.getPlayer(), event.getItemInHand(), event.getBlockPlaced(), event);
     }
 
     // 破坏事件同样需要在保护插件之后处理
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        gemManager.onGemBroken(event);
+        gemManager.handleGemBlockBreak(event.getPlayer(), event.getBlock(), event);
     }
 
     @EventHandler
     public void onBlockDamage(BlockDamageEvent event) {
-        gemManager.onGemDamage(event);
+        gemManager.handleBlockDamage(event);
     }
 }

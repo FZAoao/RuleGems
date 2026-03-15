@@ -24,7 +24,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        gemManager.onPlayerQuit(event);
+        gemManager.handlePlayerQuit(event.getPlayer());
         if (gemManager.isInventoryGrantsEnabled()) {
             // 退出时无须重算；可在下次加入时重放
         }
@@ -36,7 +36,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        gemManager.onPlayerDropItem(event);
+        gemManager.handleGemDrop(event.getPlayer(), event.getItemDrop().getLocation(), event.getItemDrop(), event.getItemDrop().getItemStack());
         if (gemManager.isInventoryGrantsEnabled()) {
             gemManager.recalculateGrants(event.getPlayer());
         }
@@ -44,7 +44,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
-        gemManager.onPlayerDeath(event);
+        gemManager.handlePlayerDeathDrops(event.getEntity(), event.getEntity().getLocation(), event.getDrops());
         if (gemManager.isInventoryGrantsEnabled()) {
             gemManager.recalculateGrants(event.getEntity());
         }
@@ -52,7 +52,7 @@ public class PlayerEventListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        gemManager.onPlayerJoin(event);
+        gemManager.handlePlayerJoin(event.getPlayer());
         if (gemManager.isInventoryGrantsEnabled()) {
             gemManager.recalculateGrants(event.getPlayer());
         }

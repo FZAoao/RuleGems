@@ -2,8 +2,10 @@ package org.cubexmc.manager;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.bukkit.ChatColor;
@@ -17,12 +19,16 @@ import org.cubexmc.update.LanguageUpdater;
 import org.cubexmc.utils.SchedulerUtil;
 
 public class LanguageManager {
+    private static final String DEFAULT_LANGUAGE = "zh_CN";
+    private static final String FALLBACK_LANGUAGE = "en_US";
+    private static final String[] BUNDLED_LANGUAGES = {FALLBACK_LANGUAGE, DEFAULT_LANGUAGE};
+
     private final RuleGems plugin;
     private String language;
     private FileConfiguration langConfig;
     private String prefix;
-
-    private static final String[] BUNDLED_LANGUAGES = {"en_US", "zh_CN"};
+    private final Map<String, FileConfiguration> loadedLanguages = new HashMap<>();
+    private final Set<String> missingMessageWarnings = new HashSet<>();
 
     public LanguageManager(RuleGems plugin) {
         this.plugin = plugin;
@@ -53,8 +59,8 @@ public class LanguageManager {
         if (!copyLangFileIfNotExists(lang)) {
             return;
         }
-    File langFile = new File(plugin.getDataFolder(), "lang/" + lang + ".yml");
-    LanguageUpdater.merge(plugin, langFile, "lang/" + lang + ".yml");
+        File langFile = new File(plugin.getDataFolder(), "lang/" + lang + ".yml");
+        LanguageUpdater.merge(plugin, langFile, "lang/" + lang + ".yml");
     }
 
     public void updateBundledLanguages() {
@@ -64,15 +70,18 @@ public class LanguageManager {
     }
 
     public void loadLanguage() {
+        loadedLanguages.clear();
+        missingMessageWarnings.clear();
+        this.langConfig = null;
         // reread language from config.yml
-    this.language = plugin.getConfig().getString("language", "zh_CN");
+        this.language = plugin.getConfig().getString("language", DEFAULT_LANGUAGE);
         ensureLanguageUpdated(language);
         loadLangConfig(language);
         if (langConfig == null) {
-            this.language = "zh_CN";
-            if (copyLangFileIfNotExists("zh_CN")) {
-                ensureLanguageUpdated("zh_CN");
-                loadLangConfig("zh_CN");
+            this.language = DEFAULT_LANGUAGE;
+            if (copyLangFileIfNotExists(DEFAULT_LANGUAGE)) {
+                ensureLanguageUpdated(DEFAULT_LANGUAGE);
+                loadLangConfig(DEFAULT_LANGUAGE);
             }
         }
         this.prefix = langConfig != null ? langConfig.getString("prefix", "&7[&6RuleGems&7] ") : "&7[&6RuleGems&7] ";
@@ -83,9 +92,13 @@ public class LanguageManager {
         if (!copyLangFileIfNotExists(lang)) {
             return;
         }
-    File langFile = new File(plugin.getDataFolder(), "lang/" + lang + ".yml");
+        File langFile = new File(plugin.getDataFolder(), "lang/" + lang + ".yml");
         if (langFile.exists()) {
-            this.langConfig = YamlConfiguration.loadConfiguration(langFile);
+            FileConfiguration loaded = YamlConfiguration.loadConfiguration(langFile);
+            loadedLanguages.put(lang, loaded);
+            if (lang.equalsIgnoreCase(this.language)) {
+                this.langConfig = loaded;
+            }
         }
     }
 
@@ -97,11 +110,79 @@ public class LanguageManager {
     }
 
     public String getMessage(String path, String lang) {
-        if (langConfig == null) {
-            return "Missing language file: " + lang;
+        String message = lookupMessage(lang, path);
+        if (message != null) {
+            return message;
         }
-        String message = langConfig.getString(path);
-        return message != null ? message : "Missing message: " + path;
+        warnMissingKey(path, lang);
+        return path;
+    }
+
+    private String lookupMessage(String lang, String path) {
+        if (path == null || path.isEmpty()) {
+            return "";
+        }
+
+        FileConfiguration preferred = getLanguageConfig(lang);
+        if (preferred != null) {
+            String message = preferred.getString(path);
+            if (message != null) {
+                return message;
+            }
+        }
+
+        if (langConfig != null && preferred != langConfig) {
+            String message = langConfig.getString(path);
+            if (message != null) {
+                return message;
+            }
+        }
+
+        if (!FALLBACK_LANGUAGE.equalsIgnoreCase(lang)) {
+            FileConfiguration fallback = getLanguageConfig(FALLBACK_LANGUAGE);
+            if (fallback != null) {
+                String message = fallback.getString(path);
+                if (message != null) {
+                    return message;
+                }
+            }
+        }
+
+        if (!DEFAULT_LANGUAGE.equalsIgnoreCase(lang) && !DEFAULT_LANGUAGE.equalsIgnoreCase(FALLBACK_LANGUAGE)) {
+            FileConfiguration defaultConfig = getLanguageConfig(DEFAULT_LANGUAGE);
+            if (defaultConfig != null) {
+                return defaultConfig.getString(path);
+            }
+        }
+        return null;
+    }
+
+    private FileConfiguration getLanguageConfig(String lang) {
+        String effectiveLang = (lang == null || lang.isEmpty()) ? this.language : lang;
+        FileConfiguration cached = loadedLanguages.get(effectiveLang);
+        if (cached != null) {
+            return cached;
+        }
+
+        File langFile = new File(plugin.getDataFolder(), "lang/" + effectiveLang + ".yml");
+        if (!langFile.exists()) {
+            ensureLanguageUpdated(effectiveLang);
+        }
+        if (!langFile.exists()) {
+            return null;
+        }
+
+        FileConfiguration loaded = YamlConfiguration.loadConfiguration(langFile);
+        loadedLanguages.put(effectiveLang, loaded);
+        return loaded;
+    }
+
+    private void warnMissingKey(String path, String lang) {
+        String warnKey = (lang == null ? this.language : lang) + ":" + path;
+        if (missingMessageWarnings.add(warnKey)) {
+            plugin.getLogger().warning("Missing language message '" + path + "' for '" + warnKey.split(":", 2)[0]
+                    + "', fallback exhausted.");
+        }
     }
 
     /**
@@ -169,7 +250,7 @@ public class LanguageManager {
     /**
      * 转换颜色代码
      */
-    private String translateColorCodes(String message) {
+    public String translateColorCodes(String message) {
         return ChatColor.translateAlternateColorCodes('&', message);
     }
 

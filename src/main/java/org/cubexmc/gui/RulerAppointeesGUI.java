@@ -54,17 +54,13 @@ public class RulerAppointeesGUI extends ChestMenu {
 
     @Override
     protected int getSize() {
-        return manager.GUI_SIZE;
+        return GUIManager.GUI_SIZE;
     }
 
     @Override
     protected GUIHolder.GUIType getHolderType() {
         return GUIHolder.GUIType.RULER_APPOINTEES;
     }
-
-    @Override
-    protected void populate(org.bukkit.inventory.Inventory inv, GUIHolder holder) {
-        /* used via open() */ }
 
     @Override
     public void onClick(Player player, GUIHolder holder, int slot,
@@ -79,7 +75,7 @@ public class RulerAppointeesGUI extends ChestMenu {
             UUID targetUuid = UUID.fromString(playerUuidStr);
             Player target = Bukkit.getPlayer(targetUuid);
             if (shiftClick && holder.isAdmin()) {
-                String rulerUuidStr = holder.getFilter();
+                String rulerUuidStr = holder.getContext();
                 if (rulerUuidStr != null) {
                     UUID rulerUuid = UUID.fromString(rulerUuidStr);
                     if (dismissAppointee(player, rulerUuid, targetUuid)) {
@@ -137,7 +133,7 @@ public class RulerAppointeesGUI extends ChestMenu {
         }
 
         int totalItems = allAppointments.size();
-        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / manager.ITEMS_PER_PAGE));
+        int totalPages = Math.max(1, (int) Math.ceil((double) totalItems / GUIManager.ITEMS_PER_PAGE));
         page = Math.max(0, Math.min(page, totalPages - 1));
 
         // 获取统治者名称
@@ -158,7 +154,7 @@ public class RulerAppointeesGUI extends ChestMenu {
                 rulerUuid.toString() // 使用 filter 字段存储统治者 UUID
         );
 
-        Inventory gui = Bukkit.createInventory(holder, manager.GUI_SIZE, title);
+        Inventory gui = Bukkit.createInventory(holder, GUIManager.GUI_SIZE, title);
         holder.setInventory(gui);
 
         // 填充装饰和控制栏（启用返回按钮）
@@ -177,8 +173,8 @@ public class RulerAppointeesGUI extends ChestMenu {
             }
 
             // 填充内容
-            int startIndex = page * manager.ITEMS_PER_PAGE;
-            int endIndex = Math.min(startIndex + manager.ITEMS_PER_PAGE, totalItems);
+            int startIndex = page * GUIManager.ITEMS_PER_PAGE;
+            int endIndex = Math.min(startIndex + GUIManager.ITEMS_PER_PAGE, totalItems);
 
             for (int i = startIndex; i < endIndex; i++) {
                 int slot = i - startIndex;

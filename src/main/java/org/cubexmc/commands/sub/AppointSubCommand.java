@@ -50,16 +50,26 @@ public class AppointSubCommand implements SubCommand {
             return true;
         }
 
-        String permSetKey = args[0].toLowerCase();
+        String rawKey = args[0];
         String targetName = args[1];
 
-        AppointDefinition def = appointFeature.getAppointDefinition(permSetKey);
-        if (def == null) {
+        String resolvedKey = null;
+        AppointDefinition def = null;
+        for (Map.Entry<String, AppointDefinition> entry : appointFeature.getAppointDefinitions().entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(rawKey)) {
+                resolvedKey = entry.getKey();
+                def = entry.getValue();
+                break;
+            }
+        }
+
+        if (resolvedKey == null || def == null) {
             Map<String, String> ph = new HashMap<>();
-            ph.put("perm_set", args[0]);
+            ph.put("perm_set", rawKey);
             languageManager.sendMessage(sender, "command.appoint.invalid_perm_set", ph);
             return true;
         }
+        String permSetKey = resolvedKey;
 
         Player appointer = (Player) sender;
         if (!appointer.hasPermission("rulegems.appoint." + permSetKey) && !appointer.hasPermission("rulegems.admin")) {

@@ -24,6 +24,7 @@ public class GemScatterService {
     private final GameplayConfig gameplayConfig;
     private final EffectUtils effectUtils;
     private final LanguageManager languageManager;
+    private final Runnable resetOwnershipStateAction;
     private final Runnable saveAction;
 
     public GemScatterService(GemStateManager stateManager,
@@ -32,6 +33,7 @@ public class GemScatterService {
                              GameplayConfig gameplayConfig,
                              EffectUtils effectUtils,
                              LanguageManager languageManager,
+                             Runnable resetOwnershipStateAction,
                              Runnable saveAction) {
         this.stateManager = stateManager;
         this.placementManager = placementManager;
@@ -39,6 +41,7 @@ public class GemScatterService {
         this.gameplayConfig = gameplayConfig;
         this.effectUtils = effectUtils;
         this.languageManager = languageManager;
+        this.resetOwnershipStateAction = resetOwnershipStateAction;
         this.saveAction = saveAction;
     }
 
@@ -61,6 +64,9 @@ public class GemScatterService {
         }
         stateManager.clearHolderMappings();
         stateManager.clearGemKeys();
+        if (resetOwnershipStateAction != null) {
+            resetOwnershipStateAction.run();
+        }
 
         languageManager.logMessage("gems_recollected");
 

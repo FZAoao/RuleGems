@@ -27,6 +27,7 @@ import org.cubexmc.manager.GemManager;
 import org.cubexmc.manager.HistoryLogger;
 import org.cubexmc.manager.LanguageManager;
 import org.cubexmc.manager.PowerStructureManager;
+import org.cubexmc.manager.RuleGemsDoctor;
 import org.cubexmc.gui.GUIManager;
 import org.cubexmc.metrics.Metrics;
 import org.cubexmc.utils.EffectUtils;
@@ -86,7 +87,7 @@ public class RuleGems extends JavaPlugin {
         // 注册命令 (Cloud framework)
         new CloudCommandManager(this, gemManager, gameplayConfig, languageManager, guiManager).registerAll();
         // 注册监听器
-        getPluginManager().registerEvents(new GemPlaceListener(this, gemManager), this);
+        getPluginManager().registerEvents(new GemPlaceListener(gemManager), this);
         getPluginManager().registerEvents(new GemInventoryListener(gemManager, languageManager), this);
         getPluginManager().registerEvents(new PlayerEventListener(this, gemManager), this);
 
@@ -111,6 +112,7 @@ public class RuleGems extends JavaPlugin {
         // 初始化功能管理器
         this.featureManager = new FeatureManager(this, gemManager);
         featureManager.registerFeatures();
+        new RuleGemsDoctor(this).logWarnings();
 
         // Setup permissions provider (Vault or Fallback)
         if (getServer().getPluginManager().getPlugin("Vault") != null) {
@@ -200,6 +202,7 @@ public class RuleGems extends JavaPlugin {
 
         if (featureManager != null) {
             featureManager.reloadAll();
+            new RuleGemsDoctor(this).logWarnings();
         }
     }
 
@@ -323,8 +326,8 @@ public class RuleGems extends JavaPlugin {
             Field field = getServer().getClass().getDeclaredField("commandMap");
             field.setAccessible(true);
             cachedCommandMap = (CommandMap) field.get(getServer());
-        } catch (Exception ex) {
-            getLogger().warning("Unable to access Bukkit command map: " + ex.getMessage());
+        } catch (NoSuchFieldException | IllegalAccessException | SecurityException ex) {
+            getLogger().log(java.util.logging.Level.SEVERE, "Unable to access Bukkit command map via reflection", ex);
         }
         return cachedCommandMap;
     }

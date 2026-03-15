@@ -1,5 +1,9 @@
 package org.cubexmc.listeners;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
@@ -14,8 +18,11 @@ import org.cubexmc.manager.GemManager;
 import org.cubexmc.manager.LanguageManager;
 
 public class GemInventoryListener implements Listener {
+    private static final long HINT_COOLDOWN_MS = 8000L;
+
     private final GemManager gemManager;
     private final LanguageManager languageManager;
+    private final Map<UUID, Long> lastGemHintAt = new HashMap<>();
 
     public GemInventoryListener(GemManager gemManager, LanguageManager languageManager) {
         this.gemManager = gemManager;
@@ -94,6 +101,34 @@ public class GemInventoryListener implements Listener {
     public void onItemHeld(PlayerItemHeldEvent event) {
         if (gemManager.isInventoryGrantsEnabled()) {
             gemManager.recalculateGrants(event.getPlayer());
+        }
+
+        org.bukkit.entity.Player player = event.getPlayer();
+        ItemStack nextItem = player.getInventory().getItem(event.getNewSlot());
+        if (!gemManager.isRuleGem(nextItem)) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        long lastHint = lastGemHintAt.getOrDefault(player.getUniqueId(), 0L);
+        if (now - lastHint < HINT_COOLDOWN_MS) {
+            return;
+        }
+        lastGemHintAt.put(player.getUniqueId(), now);
+
+        if (gemManager.getConfigManager().getGameplayConfig().isHoldToRedeemEnabled()
+                && gemManager.getConfigManager().getGameplayConfig().isRedeemEnabled()
+                && player.hasPermission("rulegems.redeem")) {
+            languageManager.sendMessage(player,
+                    gemManager.getConfigManager().getGameplayConfig().isSneakToRedeem()
+                            ? "hold_redeem.hint_sneak"
+                            : "hold_redeem.hint_normal");
+            return;
+        }
+
+        if (gemManager.getConfigManager().getGameplayConfig().isRedeemEnabled()
+                && player.hasPermission("rulegems.redeem")) {
+            languageManager.sendMessage(player, "command.redeem.usage");
         }
     }
 

@@ -7,19 +7,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 
 /**
- * Abstract base class for all RuleGems chest GUIs.
+ * Shared base class for RuleGems chest GUIs.
  *
  * <p>
- * Subclasses must implement {@link #getTitle()}, {@link #getSize()}, and
- * {@link #populate(Inventory)}. Click routing is handled in
- * {@link #onClick(Player, int, ItemStack, PersistentDataContainer, boolean)}.
- *
- * <p>
- * Usage:
- * 
- * <pre>
- *     new MyGUI(manager, ...).open(player, isAdmin);
- * </pre>
+ * Lightweight screens can rely on the default {@link #open(Player, boolean)}
+ * flow and override {@link #populate(Inventory, GUIHolder)}. More complex,
+ * paged screens may still build inventories through their own custom
+ * {@code open(...)} methods and only reuse click routing and holder typing.
  */
 public abstract class ChestMenu {
 
@@ -45,7 +39,9 @@ public abstract class ChestMenu {
      *
      * @param inv the freshly created inventory
      */
-    protected abstract void populate(Inventory inv, GUIHolder holder);
+    protected void populate(Inventory inv, GUIHolder holder) {
+        // Default: custom open(...) implementations may bypass populate entirely.
+    }
 
     /**
      * Handles a click on a non-navigation item.
@@ -76,13 +72,6 @@ public abstract class ChestMenu {
      */
     public void open(Player player, boolean isAdmin) {
         GUIHolder holder = new GUIHolder(getHolderType(), player.getUniqueId(), isAdmin);
-        openWith(player, holder);
-    }
-
-    /**
-     * Opens the GUI with an existing holder (preserves page / filter state).
-     */
-    protected void openWith(Player player, GUIHolder holder) {
         Inventory inv = Bukkit.createInventory(holder, getSize(), getTitle());
         holder.setInventory(inv);
         populate(inv, holder);

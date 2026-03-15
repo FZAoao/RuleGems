@@ -38,6 +38,7 @@ class GemScatterServiceTest {
     @Mock private GameplayConfig gameplayConfig;
     @Mock private org.cubexmc.utils.EffectUtils effectUtils;
     @Mock private LanguageManager languageManager;
+    @Mock private Runnable resetOwnershipStateAction;
     @Mock private Runnable saveAction;
 
     private MockedStatic<Bukkit> mockedBukkit;
@@ -47,7 +48,8 @@ class GemScatterServiceTest {
     void setUp() {
         mockedBukkit = mockStatic(Bukkit.class);
         service = new GemScatterService(
-                stateManager, placementManager, gemParser, gameplayConfig, effectUtils, languageManager, saveAction);
+                stateManager, placementManager, gemParser, gameplayConfig, effectUtils, languageManager,
+                resetOwnershipStateAction, saveAction);
     }
 
     @AfterEach
@@ -89,6 +91,7 @@ class GemScatterServiceTest {
         verify(stateManager, times(1)).clearPlacedMappings();
         verify(stateManager, times(1)).clearHolderMappings();
         verify(stateManager, times(1)).clearGemKeys();
+        verify(resetOwnershipStateAction, times(1)).run();
         verify(stateManager, times(3)).setGemKey(any(UUID.class), any(String.class));
         verify(placementManager, times(3)).randomPlaceGem(any(UUID.class));
         verify(inventory, times(1)).remove(gemItem);

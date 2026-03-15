@@ -28,6 +28,12 @@ permissions:
   rulegems.help:
     description: Allows using /rulegems help
     default: true
+  rulegems.profile:
+    description: Allows using /rulegems profile
+    default: true
   rulegems.navigate:
     description: Allows using compass to navigate to nearest gem
+    default: false
+  rulegems.appoint.*:
+    description: Allows appoint and dismiss commands for configured appointment sets
     default: false

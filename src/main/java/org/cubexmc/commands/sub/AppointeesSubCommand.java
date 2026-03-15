@@ -60,10 +60,17 @@ public class AppointeesSubCommand implements SubCommand {
     }
 
     private void showForPermSet(CommandSender sender, AppointFeature appointFeature, String rawKey) {
-        String permSetKey = rawKey.toLowerCase();
-        AppointDefinition def = appointFeature.getAppointDefinition(permSetKey);
+        String resolvedKey = null;
+        AppointDefinition def = null;
+        for (Map.Entry<String, AppointDefinition> entry : appointFeature.getAppointDefinitions().entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(rawKey)) {
+                resolvedKey = entry.getKey();
+                def = entry.getValue();
+                break;
+            }
+        }
 
-        if (def == null) {
+        if (resolvedKey == null || def == null) {
             Map<String, String> ph = new HashMap<>();
             ph.put("perm_set", rawKey);
             languageManager.sendMessage(sender, "command.appoint.invalid_perm_set", ph);

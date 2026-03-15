@@ -379,7 +379,7 @@ public class ItemBuilder {
     public static ItemStack filterButton(NamespacedKey key, String label, String currentFilter, String... options) {
         ItemBuilder builder = new ItemBuilder(Material.HOPPER)
                 .name("&e" + label)
-                .addLore("&7当前: &f" + currentFilter)
+                .addLore("&7" + currentFilter)
                 .addEmptyLore();
         for (String option : options) {
             builder.addLore("&8• " + option);
