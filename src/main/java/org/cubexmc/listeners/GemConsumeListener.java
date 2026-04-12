@@ -235,7 +235,7 @@ public class GemConsumeListener implements Listener {
         String message = languageManager.getMessage("messages.hold_redeem.progress_bar")
             .replace("%bar%", bar.toString())
             .replace("%percent%", String.valueOf(percent));
-        message = ChatColor.translateAlternateColorCodes('&', message);
+        message = org.cubexmc.utils.ColorUtils.translateColorCodes(message);
 
         player.spigot().sendMessage(
             net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
@@ -284,7 +284,7 @@ public class GemConsumeListener implements Listener {
         if (player.isOnline()) {
             // 清除进度条，显示取消消息
             String cancelledMsg = languageManager.getMessage("messages.hold_redeem.cancelled");
-            cancelledMsg = ChatColor.translateAlternateColorCodes('&', cancelledMsg);
+            cancelledMsg = org.cubexmc.utils.ColorUtils.translateColorCodes(cancelledMsg);
             player.spigot().sendMessage(
                 net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
                 net.md_5.bungee.api.chat.TextComponent.fromLegacyText(cancelledMsg)

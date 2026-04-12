@@ -86,7 +86,7 @@ public class CabinetMembersGUI extends ChestMenu {
                 placeholders.put("player", gemManager.getCachedPlayerName(targetUuid));
                 AppointDefinition definition = appointFeature.getAppointDefinition(appointKey);
                 placeholders.put("perm_set", definition != null
-                        ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())
+                        ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())
                         : appointKey);
                 lang.sendMessage(player, "command.dismiss.success", placeholders);
             } else {
@@ -123,7 +123,7 @@ public class CabinetMembersGUI extends ChestMenu {
             java.util.Map<String, String> placeholders = new java.util.HashMap<>();
             placeholders.put("player", target.getName());
             placeholders.put("perm_set", definition != null
-                    ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())
+                    ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())
                     : appointKey);
             lang.sendMessage(player, "command.appoint.already_appointed", placeholders);
             manager.openCabinetMembersGUI(player, appointKey, holder.getPage());
@@ -135,7 +135,7 @@ public class CabinetMembersGUI extends ChestMenu {
             java.util.Map<String, String> placeholders = new java.util.HashMap<>();
             placeholders.put("player", target.getName());
             placeholders.put("perm_set", definition != null
-                    ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())
+                    ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())
                     : appointKey);
             lang.sendMessage(player, "command.appoint.success", placeholders);
         } else {
@@ -155,9 +155,9 @@ public class CabinetMembersGUI extends ChestMenu {
 
         String titleBase = definition != null
                 ? rawMsg("cabinet_members.title").replace("%role%",
-                        ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())))
+                        ChatColor.stripColor(org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())))
                 : rawMsg("cabinet_members.title").replace("%role%", appointKey);
-        String title = ChatColor.translateAlternateColorCodes('&', titleBase + (totalPages > 1 ? " &8(" + (page + 1) + "/" + totalPages + ")" : ""));
+        String title = org.cubexmc.utils.ColorUtils.translateColorCodes(titleBase + (totalPages > 1 ? " &8(" + (page + 1) + "/" + totalPages + ")" : ""));
 
         GUIHolder holder = new GUIHolder(GUIHolder.GUIType.CABINET_MEMBERS, player.getUniqueId(),
                 player.hasPermission("rulegems.admin"), page, appointKey);
@@ -237,7 +237,7 @@ public class CabinetMembersGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {

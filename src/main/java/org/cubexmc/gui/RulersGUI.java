@@ -39,7 +39,7 @@ public class RulersGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {
@@ -109,7 +109,7 @@ public class RulersGUI extends ChestMenu {
         if (totalPages > 1) {
             title += " &8(" + (page + 1) + "/" + totalPages + ")";
         }
-        title = ChatColor.translateAlternateColorCodes('&', title);
+        title = org.cubexmc.utils.ColorUtils.translateColorCodes(title);
 
         GUIHolder holder = new GUIHolder(
                 GUIHolder.GUIType.RULERS,
@@ -123,6 +123,10 @@ public class RulersGUI extends ChestMenu {
         // 填充装饰和控制栏（启用返回按钮）
         manager.fillDecoration(gui);
         manager.addControlBar(gui, page, totalPages, totalItems, false, true);
+
+        // 添加此 GUI 专有的功能按钮
+        gui.setItem(48, createProfileButton());
+        gui.setItem(50, createCabinetButton(holder, player));
 
         if (rulers.isEmpty()) {
             // 无统治者时显示提示
@@ -213,7 +217,7 @@ public class RulersGUI extends ChestMenu {
 
             GemDefinition def = gemManager.findGemDefinitionByKey(key);
             String gemName = def != null && def.getDisplayName() != null
-                    ? ChatColor.translateAlternateColorCodes('&', def.getDisplayName())
+                    ? org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName())
                     : key;
             builder.addLore("&8  • " + gemName);
         }
@@ -264,5 +268,49 @@ public class RulersGUI extends ChestMenu {
 
         List<Appointment> appointments = appointFeature.getAppointmentsByAppointer(rulerUuid);
         return appointments.size();
+    }
+
+    private ItemStack createProfileButton() {
+        return new ItemBuilder(Material.BOOK)
+                .name("&b" + rawMsg("menu.profile_title"))
+                .addEmptyLore()
+                .addLore("&7" + rawMsg("menu.profile_desc"))
+                .addEmptyLore()
+                .addLore("&a» " + rawMsg("menu.click_to_open"))
+                .data(manager.getNavActionKey(), "open_profile")
+                .hideAttributes()
+                .build();
+    }
+
+    private ItemStack createCabinetButton(GUIHolder holder, Player viewer) {
+        boolean appointEnabled = manager.getPlugin().getFeatureManager() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature().isEnabled();
+        boolean canManageAppointments = appointEnabled && holder.isAdmin();
+        if (!canManageAppointments && appointEnabled && viewer != null && manager.getPlugin().getFeatureManager() != null
+                && manager.getPlugin().getFeatureManager().getAppointFeature() != null) {
+            canManageAppointments = manager.getPlugin().getFeatureManager().getAppointFeature()
+                    .getAppointDefinitions().keySet().stream()
+                    .anyMatch(key -> viewer.hasPermission("rulegems.appoint." + key)
+                            || viewer.hasPermission("rulegems.appoint."
+                                    + key.toLowerCase(java.util.Locale.ROOT)));
+        }
+
+        ItemBuilder builder = new ItemBuilder(Material.WRITABLE_BOOK)
+                .name("&d" + rawMsg("menu.cabinet_title"))
+                .addEmptyLore()
+                .addLore("&7" + rawMsg("menu.cabinet_desc"))
+                .addEmptyLore();
+
+        if (canManageAppointments) {
+            builder.addLore("&a» " + rawMsg("menu.click_to_open"))
+                    .data(manager.getNavActionKey(), "open_cabinet")
+                    .glow();
+        } else {
+            builder.addLore("&8" + rawMsg("menu.info_only"))
+                    .addLore("&7" + rawMsg("menu.cabinet_unavailable"))
+                    .hideAttributes();
+        }
+        return builder.build();
     }
 }

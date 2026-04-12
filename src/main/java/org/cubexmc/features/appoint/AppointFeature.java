@@ -560,7 +560,7 @@ public class AppointFeature extends Feature {
             return;
 
         AppointDefinition def = appointDefinitions.get(permSetKey);
-        String displayName = def != null ? ChatColor.translateAlternateColorCodes('&', def.getDisplayName())
+        String displayName = def != null ? org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName())
                 : permSetKey;
 
         for (String cmd : commands) {
@@ -726,7 +726,7 @@ public class AppointFeature extends Feature {
                         .replace("%target%", appointee.getName())
                         .replace("%perm_set%",
                                 def.getDisplayName() != null
-                                        ? ChatColor.translateAlternateColorCodes('&', def.getDisplayName())
+                                        ? org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName())
                                         : permSetKey);
 
                 if (processed.startsWith("console: ")) {

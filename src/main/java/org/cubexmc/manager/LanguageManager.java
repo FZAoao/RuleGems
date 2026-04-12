@@ -251,7 +251,7 @@ public class LanguageManager {
      * 转换颜色代码
      */
     public String translateColorCodes(String message) {
-        return ChatColor.translateAlternateColorCodes('&', message);
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(message);
     }
 
 

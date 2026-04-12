@@ -45,6 +45,8 @@ public class GemAllowanceManager {
 
     // 保存回调
     private Runnable saveCallback;
+    // 检查宝石是否被关闭的回调 (playerId, gemId) -> boolean
+    private java.util.function.BiPredicate<UUID, UUID> isToggledOffCheck;
 
     public GemAllowanceManager(GemDefinitionParser gemParser, GameplayConfig gameplayConfig) {
         this.gemParser = gemParser;
@@ -53,6 +55,10 @@ public class GemAllowanceManager {
 
     public void setSaveCallback(Runnable callback) {
         this.saveCallback = callback;
+    }
+
+    public void setIsToggledOffCheck(java.util.function.BiPredicate<UUID, UUID> check) {
+        this.isToggledOffCheck = check;
     }
 
     // ==================== 状态访问器 ====================
@@ -203,8 +209,9 @@ public class GemAllowanceManager {
         // 持有实例额度
         Map<UUID, Map<String, Integer>> perHeld = playerGemHeldUses.get(uid);
         if (perHeld != null) {
-            for (Map<String, Integer> byLabel : perHeld.values()) {
-                Integer v = byLabel.get(l);
+            for (Map.Entry<UUID, Map<String, Integer>> entry : perHeld.entrySet()) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, entry.getKey())) continue;
+                Integer v = entry.getValue().get(l);
                 if (v != null && (v > 0 || v < 0))
                     return true;
             }
@@ -213,8 +220,9 @@ public class GemAllowanceManager {
         // 兑换实例额度
         Map<UUID, Map<String, Integer>> perRed = playerGemRedeemUses.get(uid);
         if (perRed != null) {
-            for (Map<String, Integer> byLabel : perRed.values()) {
-                Integer v = byLabel.get(l);
+            for (Map.Entry<UUID, Map<String, Integer>> entry : perRed.entrySet()) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, entry.getKey())) continue;
+                Integer v = entry.getValue().get(l);
                 if (v != null && (v > 0 || v < 0))
                     return true;
             }
@@ -237,6 +245,7 @@ public class GemAllowanceManager {
             List<UUID> ids = new ArrayList<>(perHeld.keySet());
             ids.sort(UUID::compareTo);
             for (UUID gid : ids) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, gid)) continue;
                 Map<String, Integer> byLabel = perHeld.get(gid);
                 if (byLabel == null)
                     continue;
@@ -261,6 +270,7 @@ public class GemAllowanceManager {
             List<UUID> ids = new ArrayList<>(perRed.keySet());
             ids.sort(UUID::compareTo);
             for (UUID gid : ids) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, gid)) continue;
                 Map<String, Integer> byLabel = perRed.get(gid);
                 if (byLabel == null)
                     continue;
@@ -351,8 +361,9 @@ public class GemAllowanceManager {
         // per-instance: held + redeemed
         Map<UUID, Map<String, Integer>> perHeld = playerGemHeldUses.get(uid);
         if (perHeld != null) {
-            for (Map<String, Integer> byLabel : perHeld.values()) {
-                Integer v2 = byLabel.get(l);
+            for (Map.Entry<UUID, Map<String, Integer>> entry : perHeld.entrySet()) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, entry.getKey())) continue;
+                Integer v2 = entry.getValue().get(l);
                 if (v2 != null) {
                     if (v2 < 0)
                         return -1; // 无限
@@ -363,8 +374,9 @@ public class GemAllowanceManager {
 
         Map<UUID, Map<String, Integer>> perRed = playerGemRedeemUses.get(uid);
         if (perRed != null) {
-            for (Map<String, Integer> byLabel : perRed.values()) {
-                Integer v2 = byLabel.get(l);
+            for (Map.Entry<UUID, Map<String, Integer>> entry : perRed.entrySet()) {
+                if (isToggledOffCheck != null && isToggledOffCheck.test(uid, entry.getKey())) continue;
+                Integer v2 = entry.getValue().get(l);
                 if (v2 != null) {
                     if (v2 < 0)
                         return -1;
@@ -559,8 +571,8 @@ public class GemAllowanceManager {
 
     private Set<String> rebuildLabelIndex(UUID uid) {
         Set<String> labels = new HashSet<>();
-        collectActiveLabelsFromNestedMap(labels, playerGemHeldUses.get(uid));
-        collectActiveLabelsFromNestedMap(labels, playerGemRedeemUses.get(uid));
+        collectActiveLabelsFromNestedMap(uid, labels, playerGemHeldUses.get(uid));
+        collectActiveLabelsFromNestedMap(uid, labels, playerGemRedeemUses.get(uid));
         collectActiveLabelsFromFlatMap(labels, playerGlobalAllowedUses.get(uid));
         return labels;
     }
@@ -570,12 +582,13 @@ public class GemAllowanceManager {
             labelIndexDirtyPlayers.add(uid);
     }
 
-    private void collectActiveLabelsFromNestedMap(Set<String> labels,
+    private void collectActiveLabelsFromNestedMap(UUID uid, Set<String> labels,
             Map<UUID, Map<String, Integer>> nested) {
         if (nested == null || nested.isEmpty())
             return;
-        for (Map<String, Integer> inner : nested.values()) {
-            collectActiveLabelsFromFlatMap(labels, inner);
+        for (Map.Entry<UUID, Map<String, Integer>> entry : nested.entrySet()) {
+            if (isToggledOffCheck != null && isToggledOffCheck.test(uid, entry.getKey())) continue;
+            collectActiveLabelsFromFlatMap(labels, entry.getValue());
         }
     }
 

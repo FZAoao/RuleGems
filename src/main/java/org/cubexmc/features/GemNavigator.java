@@ -134,7 +134,7 @@ public class GemNavigator extends Feature implements Listener {
                 Map<String, String> placeholders = new HashMap<>();
                 placeholders.put("seconds", String.valueOf(remaining));
                 String msg = plugin.getLanguageManager().formatMessage("feature.navigate.cooldown", placeholders);
-                player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
+                player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(msg));
                 return false;
             }
         }
@@ -152,14 +152,14 @@ public class GemNavigator extends Feature implements Listener {
         
         if (result == null) {
             String msg = plugin.getLanguageManager().formatMessage("feature.navigate.no_gem_found", null);
-            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
+            player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(msg));
             return;
         }
         
         // 检查范围限制
         if (maxRange > 0 && result.distance > maxRange) {
             String msg = plugin.getLanguageManager().formatMessage("feature.navigate.out_of_range", null);
-            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
+            player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(msg));
             return;
         }
         
@@ -175,10 +175,10 @@ public class GemNavigator extends Feature implements Listener {
             String distanceStr = formatDistance(result.distance);
             placeholders.put("distance", distanceStr);
             String msg = plugin.getLanguageManager().formatMessage("feature.navigate.found_with_distance", placeholders);
-            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
+            player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(msg));
         } else {
             String msg = plugin.getLanguageManager().formatMessage("feature.navigate.found", placeholders);
-            player.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
+            player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(msg));
         }
     }
     

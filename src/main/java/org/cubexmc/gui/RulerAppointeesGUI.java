@@ -40,7 +40,7 @@ public class RulerAppointeesGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {
@@ -144,7 +144,7 @@ public class RulerAppointeesGUI extends ChestMenu {
         if (totalPages > 1) {
             title += " &8(" + (page + 1) + "/" + totalPages + ")";
         }
-        title = ChatColor.translateAlternateColorCodes('&', title);
+        title = org.cubexmc.utils.ColorUtils.translateColorCodes(title);
 
         GUIHolder holder = new GUIHolder(
                 GUIHolder.GUIType.RULER_APPOINTEES,
@@ -211,7 +211,7 @@ public class RulerAppointeesGUI extends ChestMenu {
                 ? appointFeature.getAppointDefinition(appointment.getPermSetKey())
                 : null;
 
-        String displayName = def != null ? ChatColor.translateAlternateColorCodes('&', def.getDisplayName())
+        String displayName = def != null ? org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName())
                 : appointment.getPermSetKey();
 
         // 选择材质和颜色
@@ -308,7 +308,7 @@ public class RulerAppointeesGUI extends ChestMenu {
                 AppointDefinition delegateDef = appointFeature != null ? appointFeature.getAppointDefinition(key)
                         : null;
                 String delegateName = delegateDef != null
-                        ? ChatColor.translateAlternateColorCodes('&', delegateDef.getDisplayName())
+                        ? org.cubexmc.utils.ColorUtils.translateColorCodes(delegateDef.getDisplayName())
                         : key;
                 builder.addLore("&8  • &7" + rawMsg("appointees.can_appoint") + " " + delegateName);
             }

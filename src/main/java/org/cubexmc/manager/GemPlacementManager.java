@@ -159,13 +159,13 @@ public class GemPlacementManager {
                 plugin.getLogger().fine("Failed to load chunk for gem placement: " + e.getMessage());
             }
 
-            t.getBlock().setType(mat);
-            stateManager.bindPlacedGem(t, gemId);
-
-            // 清理旧位置
+            // 清理旧位置（必须在绑定新位置之前，以免解绑时误删新位置的记录）
             if (oldLoc != null) {
                 unplaceRuleGem(oldLoc, gemId);
             }
+
+            t.getBlock().setType(mat);
+            stateManager.bindPlacedGem(t, gemId);
 
             // 调度逃逸
             scheduleEscape(gemId);

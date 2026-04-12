@@ -22,7 +22,7 @@ import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.entity.Player;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.SenderMapper;
-import org.incendo.cloud.bukkit.CloudBukkitCapabilities;
+import org.incendo.cloud.bukkit.parser.location.LocationParser;
 import org.incendo.cloud.exception.InvalidSyntaxException;
 import org.incendo.cloud.exception.NoPermissionException;
 import org.incendo.cloud.paper.LegacyPaperCommandManager;
@@ -157,10 +157,10 @@ public class CloudCommandManager {
 
     private void configureLegacyCapabilities(LegacyPaperCommandManager<RuleGemsCommandActor> manager) {
         try {
-            if (manager.hasCapability(CloudBukkitCapabilities.BRIGADIER)) {
+            if (manager.hasCapability(org.incendo.cloud.bukkit.CloudBukkitCapabilities.BRIGADIER)) {
                 manager.registerBrigadier();
             }
-            if (manager.hasCapability(CloudBukkitCapabilities.ASYNCHRONOUS_COMPLETION)) {
+            if (manager.hasCapability(org.incendo.cloud.bukkit.CloudBukkitCapabilities.ASYNCHRONOUS_COMPLETION)) {
                 manager.registerAsynchronousCompletions();
             }
         } catch (Exception capabilityFailure) {
@@ -750,7 +750,7 @@ public class CloudCommandManager {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("tp")
                 .permission("rulegems.admin")
-                .required("gem_id", StringParser.stringParser())
+                .required("gem_id", StringParser.stringParser(), getGemKeySuggestions())
                 .handler(ctx -> {
                     Player player = requirePlayer(ctx.sender());
                     if (player != null) {
@@ -813,20 +813,19 @@ public class CloudCommandManager {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("place")
                 .permission("rulegems.admin")
-                .required("gem_id", StringParser.stringParser())
-                .required("x", StringParser.stringParser())
-                .required("y", StringParser.stringParser())
-                .required("z", StringParser.stringParser())
+                .required("gem_id", StringParser.stringParser(), getGemKeySuggestions())
+                .required("location", LocationParser.locationParser())
                 .handler(ctx -> {
                     Player player = requirePlayer(ctx.sender());
                     if (player == null) {
                         return;
                     }
+                    org.bukkit.Location loc = ctx.get("location");
                     String[] args = new String[] {
                             ctx.get("gem_id"),
-                            ctx.get("x"),
-                            ctx.get("y"),
-                            ctx.get("z")
+                            String.valueOf(loc.getX()),
+                            String.valueOf(loc.getY()),
+                            String.valueOf(loc.getZ())
                     };
                     placeSubCommand.execute(player, args);
                 }));
@@ -837,8 +836,8 @@ public class CloudCommandManager {
         m.command(m.commandBuilder("rulegems", "rg")
                 .literal("revoke")
                 .permission("rulegems.admin")
-                .required("player_name", StringParser.stringParser())
-                .optional("gem_key", StringParser.stringParser())
+                .required("player_name", StringParser.stringParser(), getOnlinePlayerSuggestions())
+                .optional("gem_key", StringParser.stringParser(), getGemKeySuggestions())
                 .handler(ctx -> {
                     String playerName = ctx.get("player_name");
                     String gemKey = ctx.contains("gem_key") ? ctx.get("gem_key") : null;
@@ -855,7 +854,7 @@ public class CloudCommandManager {
                 .literal("history")
                 .permission("rulegems.admin")
                 .optional("page", IntegerParser.integerParser(1))
-                .optional("player_name", StringParser.stringParser())
+                .optional("player_name", StringParser.stringParser(), getOnlinePlayerSuggestions())
                 .handler(ctx -> {
                     int page = ctx.contains("page") ? (int) ctx.get("page") : 1;
                     String player = ctx.contains("player_name") ? ctx.get("player_name") : null;

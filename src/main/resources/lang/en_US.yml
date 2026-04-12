@@ -293,6 +293,17 @@ gui:
     cooldown: "Cooldown"
     cooldown_ready: "Ready"
     unlimited: "Unlimited"
+    manage_powers_title: "⚙ Manage Gem Powers"
+    manage_powers_lore: "Click to open the panel to toggle your gem powers on or off"
+  power_toggles:
+    title: "&c✦ Manage Gem Powers ✦"
+    back_to_profile: "Back to Profile"
+    no_gems: "No gems available"
+    no_gems_lore: "You do not currently own any gems"
+    status_off: "Current status: Disabled"
+    click_to_enable: "Click to enable this gem's power"
+    status_on: "Current status: Enabled"
+    click_to_disable: "Click to disable this gem's power (disables your effects and commands, does not affect appointees)"
   cabinet:
     title: "&d✦ Cabinet ✦"
     no_roles: "No roles available"

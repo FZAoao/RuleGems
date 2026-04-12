@@ -68,7 +68,7 @@ public class CabinetGUI extends ChestMenu {
         if (totalPages > 1) {
             title += " &8(" + (page + 1) + "/" + totalPages + ")";
         }
-        title = ChatColor.translateAlternateColorCodes('&', title);
+        title = org.cubexmc.utils.ColorUtils.translateColorCodes(title);
 
         GUIHolder holder = new GUIHolder(GUIHolder.GUIType.CABINET, player.getUniqueId(), player.hasPermission("rulegems.admin"), page);
         Inventory gui = Bukkit.createInventory(holder, GUIManager.GUI_SIZE, title);
@@ -97,7 +97,7 @@ public class CabinetGUI extends ChestMenu {
 
     private ItemStack createRoleItem(Player player, String appointKey, AppointDefinition definition, AppointFeature appointFeature) {
         String displayName = definition != null
-                ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())
+                ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())
                 : appointKey;
         int current = appointFeature != null ? appointFeature.getAppointmentCountBy(player.getUniqueId(), appointKey) : 0;
         int max = definition != null ? definition.getMaxAppointments() : -1;
@@ -159,7 +159,7 @@ public class CabinetGUI extends ChestMenu {
         }
         keys.sort(Comparator.comparing(key -> {
             AppointDefinition definition = appointFeature.getAppointDefinition(key);
-            return definition != null ? ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())) : key;
+            return definition != null ? ChatColor.stripColor(org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())) : key;
         }, String.CASE_INSENSITIVE_ORDER));
         return keys;
     }
@@ -173,7 +173,7 @@ public class CabinetGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {

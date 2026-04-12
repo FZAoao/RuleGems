@@ -56,6 +56,8 @@ public class GemPermissionManager {
     private UUID fullSetOwner = null;
     // 离线撤销队列（合并 permissions / groups / keys / effects）
     private final Map<UUID, PendingRevoke> pendingRevokes = new ConcurrentHashMap<>();
+    // 玩家手动关闭能力的宝石集合 (UUID -> Set<gemKey>)
+    private final Map<UUID, Set<String>> toggledOffGems = new ConcurrentHashMap<>();
 
     // 保存回调
     private Runnable saveCallback;
@@ -163,6 +165,53 @@ public class GemPermissionManager {
         this.fullSetOwner = owner;
     }
 
+    // ==================== 宝石能力开关 (Toggle) ====================
+
+    /**
+     * 检查某个玩家的某个宝石能力是否被手动关闭
+     */
+    public boolean isGemToggledOff(UUID playerUuid, String gemKey) {
+        if (playerUuid == null || gemKey == null) return false;
+        Set<String> toggledOff = toggledOffGems.get(playerUuid);
+        return toggledOff != null && toggledOff.contains(gemKey.toLowerCase(ROOT_LOCALE));
+    }
+
+    /**
+     * 手动开启或关闭玩家的某个宝石能力
+     */
+    public void toggleGemPower(Player player, String gemKey, boolean enabled) {
+        if (player == null || gemKey == null) return;
+        UUID uid = player.getUniqueId();
+        String normalizedKey = gemKey.toLowerCase(ROOT_LOCALE);
+        
+        Set<String> toggledOff = toggledOffGems.computeIfAbsent(uid, k -> new HashSet<>());
+        boolean currentlyOff = toggledOff.contains(normalizedKey);
+        
+        if (enabled && currentlyOff) {
+            // 开启
+            toggledOff.remove(normalizedKey);
+            GemDefinition def = stateManager.findGemDefinition(gemKey);
+            if (def != null && def.getPowerStructure() != null) {
+                PowerStructureManager psm = getPSM();
+                if (psm != null) {
+                    psm.applyStructure(player, def.getPowerStructure(), "gem_redeem", gemKey, false);
+                }
+            }
+            save();
+        } else if (!enabled && !currentlyOff) {
+            // 关闭
+            toggledOff.add(normalizedKey);
+            GemDefinition def = stateManager.findGemDefinition(gemKey);
+            if (def != null && def.getPowerStructure() != null) {
+                PowerStructureManager psm = getPSM();
+                if (psm != null) {
+                    psm.removeStructure(player, def.getPowerStructure(), "gem_redeem", gemKey);
+                }
+            }
+            save();
+        }
+    }
+
     // ==================== 清理方法 ====================
 
     public void clearAll() {
@@ -172,6 +221,7 @@ public class GemPermissionManager {
         playerActiveHeldKeys.clear();
         pendingRevokes.clear();
         fullSetOwner = null;
+        toggledOffGems.clear();
     }
 
     /**
@@ -289,6 +339,23 @@ public class GemPermissionManager {
                 plugin.getLogger().warning("Failed to parse full set owner UUID '" + u + "': " + e.getMessage());
             }
         }
+        
+        // 已关闭能力的宝石列表
+        ConfigurationSection toggledOffSection = gemsData.getConfigurationSection("toggled_off_gems");
+        if (toggledOffSection != null) {
+            for (String playerUuidStr : toggledOffSection.getKeys(false)) {
+                try {
+                    UUID pu = UUID.fromString(playerUuidStr);
+                    List<String> list = toggledOffSection.getStringList(playerUuidStr);
+                    if (list != null && !list.isEmpty()) {
+                        toggledOffGems.put(pu, new HashSet<>(list));
+                    }
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("Skipping corrupted player UUID in toggled_off_gems data: " + playerUuidStr);
+                }
+            }
+        }
+
         // 离线撤销队列
         loadPendingRevokes(gemsData);
     }
@@ -345,7 +412,9 @@ public class GemPermissionManager {
                 continue;
 
             if (psm != null && def.getPowerStructure() != null) {
-                psm.applyStructure(player, def.getPowerStructure(), "gem_redeem", key, false);
+                if (!isGemToggledOff(playerId, key)) {
+                    psm.applyStructure(player, def.getPowerStructure(), "gem_redeem", key, false);
+                }
             }
             grantAppointPermissions(player, def);
         }
@@ -419,6 +488,12 @@ public class GemPermissionManager {
         }
         if (fullSetOwner != null) {
             snapshot.put("full_set_owner.uuid", fullSetOwner.toString());
+        }
+
+        for (Map.Entry<UUID, Set<String>> e : toggledOffGems.entrySet()) {
+            if (!e.getValue().isEmpty()) {
+                snapshot.put("toggled_off_gems." + e.getKey().toString(), new ArrayList<>(e.getValue()));
+            }
         }
 
         for (Map.Entry<UUID, PendingRevoke> e : pendingRevokes.entrySet()) {
@@ -637,7 +712,9 @@ public class GemPermissionManager {
             if (p != null && p.isOnline()) {
                 PowerStructureManager psm = getPSM();
                 if (psm != null && def.getPowerStructure() != null) {
-                    psm.applyStructure(p, def.getPowerStructure(), "gem_redeem", key, false);
+                    if (!isGemToggledOff(owner, key)) {
+                        psm.applyStructure(p, def.getPowerStructure(), "gem_redeem", key, false);
+                    }
                 }
                 grantAppointPermissions(p, def);
                 try {

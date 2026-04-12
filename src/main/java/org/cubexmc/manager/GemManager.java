@@ -78,6 +78,7 @@ public class GemManager {
 
         // 交叉引用 & 回调
         this.allowanceManager.setSaveCallback(this::saveGems);
+        this.allowanceManager.setIsToggledOffCheck(this::isGemIdToggledOff);
         this.permissionManager.setSaveCallback(this::saveGems);
         this.permissionManager.setAllowanceManager(allowanceManager);
         this.placementManager.setEffectUtils(effectUtils);
@@ -116,6 +117,16 @@ public class GemManager {
     public void setHistoryLogger(HistoryLogger historyLogger) {
         this.historyLogger = historyLogger;
         this.permissionManager.setHistoryLogger(historyLogger);
+    }
+
+    /**
+     * 辅助桥接方法：判断某个宝石 ID 对应的能力是否被玩家手动关闭
+     */
+    public boolean isGemIdToggledOff(UUID playerId, UUID gemId) {
+        if (playerId == null || gemId == null) return false;
+        String gemKey = stateManager.getGemUuidToKey().get(gemId);
+        if (gemKey == null) return false;
+        return permissionManager.isGemToggledOff(playerId, gemKey);
     }
 
     // ====================================================================
@@ -684,13 +695,12 @@ public class GemManager {
             return;
         }
         if (title.size() == 1) {
-            p.sendTitle(org.bukkit.ChatColor.translateAlternateColorCodes('&',
-                    languageManager.formatText(title.get(0), ph)), null, 10, 70, 20);
+            p.sendTitle(org.cubexmc.utils.ColorUtils.translateColorCodes(languageManager.formatText(title.get(0), ph)), null, 10, 70, 20);
         } else {
             String l1 = languageManager.formatText(title.get(0), ph);
             String l2 = languageManager.formatText(title.get(1), ph);
-            p.sendTitle(org.bukkit.ChatColor.translateAlternateColorCodes('&', l1),
-                    org.bukkit.ChatColor.translateAlternateColorCodes('&', l2), 10, 70, 20);
+            p.sendTitle(org.cubexmc.utils.ColorUtils.translateColorCodes(l1),
+                    org.cubexmc.utils.ColorUtils.translateColorCodes(l2), 10, 70, 20);
         }
     }
 

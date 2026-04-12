@@ -53,7 +53,7 @@ public class GemsGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {
@@ -112,7 +112,7 @@ public class GemsGUI extends ChestMenu {
         if (totalPages > 1) {
             title += " &8(" + (page + 1) + "/" + totalPages + ")";
         }
-        title = ChatColor.translateAlternateColorCodes('&', title);
+        title = org.cubexmc.utils.ColorUtils.translateColorCodes(title);
 
         GUIHolder holder = new GUIHolder(
                 GUIHolder.GUIType.GEMS,
@@ -134,6 +134,7 @@ public class GemsGUI extends ChestMenu {
                 rawMsg("gems.filter_all"),
                 rawMsg("gems.status_held"),
                 rawMsg("gems.status_placed")));
+        gui.setItem(48, createRedeemGuideButton());
 
         // 填充宝石内容
         int startIndex = page * GUIManager.ITEMS_PER_PAGE;
@@ -164,7 +165,7 @@ public class GemsGUI extends ChestMenu {
             GemDefinition def = gemKey != null ? gemManager.findGemDefinitionByKey(gemKey) : null;
             if (def != null && def.getDisplayName() != null) {
                 String stripped = ChatColor.stripColor(
-                        ChatColor.translateAlternateColorCodes('&', def.getDisplayName()));
+                        org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName()));
                 if (stripped.toLowerCase(Locale.ROOT).contains(lowerFilter)) {
                     return true;
                 }
@@ -335,5 +336,44 @@ public class GemsGUI extends ChestMenu {
         String world = loc.getWorld() != null ? loc.getWorld().getName() : "?";
         return String.format("%d, %d, %d (%s)",
                 loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), world);
+    }
+
+    private ItemStack createRedeemGuideButton() {
+        boolean redeemEnabled = manager.getPlugin().getGameplayConfig().isRedeemEnabled();
+        boolean redeemAllEnabled = manager.getPlugin().getGameplayConfig().isFullSetGrantsAllEnabled();
+        boolean holdEnabled = manager.getPlugin().getGameplayConfig().isHoldToRedeemEnabled();
+        boolean placeEnabled = manager.getPlugin().getGameplayConfig().isPlaceRedeemEnabled();
+        boolean sneakToRedeem = manager.getPlugin().getGameplayConfig().isSneakToRedeem();
+
+        ItemBuilder builder = new ItemBuilder(Material.EMERALD)
+                .name("&a" + rawMsg("menu.redeem_title"))
+                .data(manager.getNavActionKey(), "show_redeem_help")
+                .glow();
+
+        builder.addEmptyLore()
+                .addLore("&7" + rawMsg("menu.redeem_desc"))
+                .addEmptyLore();
+
+        if (redeemEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_command"));
+        } else {
+            builder.addLore("&c▸ " + rawMsg("menu.redeem_disabled"));
+        }
+
+        if (holdEnabled) {
+            builder.addLore("&e▸ " + rawMsg(sneakToRedeem ? "menu.redeem_hold_sneak" : "menu.redeem_hold_normal"));
+        }
+
+        if (placeEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_altar"));
+        }
+
+        if (redeemAllEnabled) {
+            builder.addLore("&e▸ " + rawMsg("menu.redeem_all"));
+        }
+
+        builder.addEmptyLore()
+                .addLore("&8" + rawMsg("menu.info_only"));
+        return builder.build();
     }
 }

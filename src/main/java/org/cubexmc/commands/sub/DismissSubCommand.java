@@ -96,7 +96,7 @@ public class DismissSubCommand implements SubCommand {
         if (success) {
             Map<String, String> ph = new HashMap<>();
             ph.put("player", targetName);
-            ph.put("perm_set", ChatColor.translateAlternateColorCodes('&', def.getDisplayName()));
+            ph.put("perm_set", org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName()));
             languageManager.sendMessage(sender, "command.dismiss.success", ph);
         } else {
             languageManager.sendMessage(sender, "command.dismiss.failed");

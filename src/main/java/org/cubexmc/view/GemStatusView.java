@@ -90,12 +90,12 @@ public class GemStatusView {
     private void sendClickableGemStatus(Player player, UUID gemId, String plain, GemDefinition def) {
         net.md_5.bungee.api.chat.TextComponent comp = new net.md_5.bungee.api.chat.TextComponent(
                 net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
-                        ChatColor.translateAlternateColorCodes('&', plain)));
+                        org.cubexmc.utils.ColorUtils.translateColorCodes(plain)));
 
         StringBuilder loreBuilder = new StringBuilder();
         if (def != null && def.getLore() != null && !def.getLore().isEmpty()) {
             for (String line : def.getLore()) {
-                loreBuilder.append(ChatColor.translateAlternateColorCodes('&', line)).append("\n");
+                loreBuilder.append(org.cubexmc.utils.ColorUtils.translateColorCodes(line)).append("\n");
             }
         } else {
             String noMoreInfo = languageManager != null ? languageManager.getMessage("gui.no_more_info")

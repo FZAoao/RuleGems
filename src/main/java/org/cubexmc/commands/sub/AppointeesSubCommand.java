@@ -82,7 +82,7 @@ public class AppointeesSubCommand implements SubCommand {
     private void showPermSetBlock(CommandSender sender, AppointFeature appointFeature, AppointDefinition def) {
         List<Appointment> appointees = appointFeature.getAppointees(def.getKey());
         Map<String, String> ph = new HashMap<>();
-        ph.put("perm_set", ChatColor.translateAlternateColorCodes('&', def.getDisplayName()));
+        ph.put("perm_set", org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName()));
         ph.put("count", String.valueOf(appointees.size()));
         languageManager.sendMessage(sender, "command.appointees.set_header", ph);
 

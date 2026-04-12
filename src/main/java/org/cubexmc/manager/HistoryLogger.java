@@ -303,7 +303,7 @@ public class HistoryLogger {
         if (placeholders != null && !placeholders.isEmpty()) {
             template = languageManager.formatText(template, placeholders);
         }
-        return ChatColor.translateAlternateColorCodes('&', template);
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(template);
     }
 
     private String buildFallbackRedeem(Player player, String gemKey, String gemDisplayName,

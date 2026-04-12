@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
@@ -57,7 +57,7 @@ public class ItemBuilder {
      */
     public ItemBuilder name(String name) {
         if (meta != null && name != null) {
-            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+            meta.setDisplayName(org.cubexmc.utils.ColorUtils.translateColorCodes(name));
         }
         return this;
     }
@@ -70,7 +70,7 @@ public class ItemBuilder {
         if (meta != null && lore != null) {
             List<String> coloredLore = new ArrayList<>();
             for (String line : lore) {
-                coloredLore.add(ChatColor.translateAlternateColorCodes('&', line));
+                coloredLore.add(org.cubexmc.utils.ColorUtils.translateColorCodes(line));
             }
             meta.setLore(coloredLore);
         }
@@ -85,7 +85,7 @@ public class ItemBuilder {
         if (meta != null && lore != null) {
             List<String> coloredLore = new ArrayList<>();
             for (String line : lore) {
-                coloredLore.add(ChatColor.translateAlternateColorCodes('&', line));
+                coloredLore.add(org.cubexmc.utils.ColorUtils.translateColorCodes(line));
             }
             meta.setLore(coloredLore);
         }
@@ -102,7 +102,7 @@ public class ItemBuilder {
             if (lore == null) {
                 lore = new ArrayList<>();
             }
-            lore.add(ChatColor.translateAlternateColorCodes('&', line));
+            lore.add(org.cubexmc.utils.ColorUtils.translateColorCodes(line));
             meta.setLore(lore);
         }
         return this;
@@ -119,7 +119,7 @@ public class ItemBuilder {
                 lore = new ArrayList<>();
             }
             for (String line : lines) {
-                lore.add(ChatColor.translateAlternateColorCodes('&', line));
+                lore.add(org.cubexmc.utils.ColorUtils.translateColorCodes(line));
             }
             meta.setLore(lore);
         }

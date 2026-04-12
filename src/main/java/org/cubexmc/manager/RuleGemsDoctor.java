@@ -140,7 +140,7 @@ public class RuleGemsDoctor {
     }
 
     private String color(String input) {
-        return ChatColor.translateAlternateColorCodes('&', input);
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(input);
     }
 
     private record Entry(Severity severity, String message) {

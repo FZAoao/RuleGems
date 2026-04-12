@@ -197,12 +197,12 @@ public class HistorySubCommand implements SubCommand {
 
     private void appendInteractiveComponent(List<BaseComponent> components, String text, String hover, String command) {
         if (text == null || text.isEmpty()) return;
-        BaseComponent[] parts = TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', text));
+        BaseComponent[] parts = TextComponent.fromLegacyText(org.cubexmc.utils.ColorUtils.translateColorCodes(text));
         ClickEvent clickEvent = new ClickEvent(ClickEvent.Action.RUN_COMMAND, command);
         HoverEvent hoverEvent = null;
         if (hover != null && !hover.isEmpty()) {
             hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-                    new Text(ChatColor.translateAlternateColorCodes('&', hover)));
+                    new Text(org.cubexmc.utils.ColorUtils.translateColorCodes(hover)));
         }
         for (BaseComponent part : parts) {
             part.setClickEvent(clickEvent);
@@ -213,7 +213,7 @@ public class HistorySubCommand implements SubCommand {
 
     private void appendStaticComponent(List<BaseComponent> components, String text) {
         if (text == null || text.isEmpty()) return;
-        for (BaseComponent part : TextComponent.fromLegacyText(ChatColor.translateAlternateColorCodes('&', text))) {
+        for (BaseComponent part : TextComponent.fromLegacyText(org.cubexmc.utils.ColorUtils.translateColorCodes(text))) {
             components.add(part);
         }
     }

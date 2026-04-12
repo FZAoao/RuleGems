@@ -93,7 +93,7 @@ public class AppointSubCommand implements SubCommand {
         if (appointFeature.isAppointed(target.getUniqueId(), permSetKey)) {
             Map<String, String> ph = new HashMap<>();
             ph.put("player", target.getName());
-            ph.put("perm_set", ChatColor.translateAlternateColorCodes('&', def.getDisplayName()));
+            ph.put("perm_set", org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName()));
             languageManager.sendMessage(sender, "command.appoint.already_appointed", ph);
             return true;
         }
@@ -112,7 +112,7 @@ public class AppointSubCommand implements SubCommand {
         if (success) {
             Map<String, String> ph = new HashMap<>();
             ph.put("player", target.getName());
-            ph.put("perm_set", ChatColor.translateAlternateColorCodes('&', def.getDisplayName()));
+            ph.put("perm_set", org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName()));
             languageManager.sendMessage(sender, "command.appoint.success", ph);
         } else {
             languageManager.sendMessage(sender, "command.appoint.failed");

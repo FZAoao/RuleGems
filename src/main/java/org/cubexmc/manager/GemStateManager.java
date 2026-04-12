@@ -409,7 +409,7 @@ public class GemStateManager {
             return null;
         GemDefinition def = findGemDefinition(gemKey);
         if (def != null && def.getDisplayName() != null) {
-            return ChatColor.translateAlternateColorCodes('&', def.getDisplayName());
+            return org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName());
         }
         return gemKey;
     }
@@ -601,18 +601,18 @@ public class GemStateManager {
         if (defaultDisplayName == null || defaultDisplayName.startsWith("Missing message")) {
             defaultDisplayName = "&cRule Gem";
         }
-        String displayName = ChatColor.translateAlternateColorCodes('&', defaultDisplayName);
+        String displayName = org.cubexmc.utils.ColorUtils.translateColorCodes(defaultDisplayName);
 
         // Lore
         java.util.List<String> lore = new java.util.ArrayList<>();
         if (gemKey != null) {
             GemDefinition def = findGemDefinition(gemKey);
             if (def != null && def.getDisplayName() != null) {
-                displayName = ChatColor.translateAlternateColorCodes('&', def.getDisplayName());
+                displayName = org.cubexmc.utils.ColorUtils.translateColorCodes(def.getDisplayName());
             }
             if (def != null && def.getLore() != null && !def.getLore().isEmpty()) {
                 for (String line : def.getLore()) {
-                    lore.add(ChatColor.translateAlternateColorCodes('&', line));
+                    lore.add(org.cubexmc.utils.ColorUtils.translateColorCodes(line));
                 }
             }
         }

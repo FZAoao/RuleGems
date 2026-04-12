@@ -60,6 +60,7 @@ public class GUIManager implements Listener {
     private final ProfileGUI profileGUI;
     private final CabinetGUI cabinetGUI;
     private final CabinetMembersGUI cabinetMembersGUI;
+    private final PowerTogglesGUI powerTogglesGUI;
 
     public GUIManager(RuleGems plugin, GemManager gemManager, LanguageManager languageManager) {
         this.plugin = plugin;
@@ -78,6 +79,7 @@ public class GUIManager implements Listener {
         this.profileGUI = new ProfileGUI(this, gemManager, languageManager, plugin);
         this.cabinetGUI = new CabinetGUI(this, gemManager, languageManager, plugin);
         this.cabinetMembersGUI = new CabinetMembersGUI(this, gemManager, languageManager, plugin);
+        this.powerTogglesGUI = new PowerTogglesGUI(this, gemManager, languageManager);
 
         // 注册事件监听器
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -109,7 +111,7 @@ public class GUIManager implements Listener {
      * 获取语言消息（带颜色转换）
      */
     public String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     /**
@@ -192,6 +194,14 @@ public class GUIManager implements Listener {
 
     public void openCabinetMembersGUI(Player player, String appointKey, int page) {
         cabinetMembersGUI.open(player, appointKey, page);
+    }
+
+    public void openPowerTogglesGUI(Player player, boolean isAdmin) {
+        openPowerTogglesGUI(player, isAdmin, 0);
+    }
+
+    public void openPowerTogglesGUI(Player player, boolean isAdmin, int page) {
+        powerTogglesGUI.open(player, page);
     }
 
     public boolean canOpenCabinet(Player player) {
@@ -340,6 +350,8 @@ public class GUIManager implements Listener {
                 return cabinetGUI;
             case CABINET_MEMBERS:
                 return cabinetMembersGUI;
+            case POWER_TOGGLES:
+                return powerTogglesGUI;
             case MAIN_MENU:
                 return mainMenuGUI;
             default:
@@ -451,7 +463,7 @@ public class GUIManager implements Listener {
                 && player.hasPermission("rulegems.navigate")) {
             lang.sendMessage(player, "command.help.navigate");
         } else {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', rawMsg("menu.navigate_disabled_chat")));
+            player.sendMessage(org.cubexmc.utils.ColorUtils.translateColorCodes(rawMsg("menu.navigate_disabled_chat")));
         }
     }
 
@@ -462,6 +474,10 @@ public class GUIManager implements Listener {
         }
         if (holder.getType() == GUIHolder.GUIType.CABINET_MEMBERS) {
             openCabinetGUI(player);
+            return;
+        }
+        if (holder.getType() == GUIHolder.GUIType.POWER_TOGGLES) {
+            openProfileGUI(player);
             return;
         }
         openMainMenu(player, holder.isAdmin());
@@ -497,6 +513,9 @@ public class GUIManager implements Listener {
                 if (holder.getContext() != null) {
                     openCabinetMembersGUI(player, holder.getContext(), page);
                 }
+                break;
+            case POWER_TOGGLES:
+                openPowerTogglesGUI(player, holder.isAdmin(), page);
                 break;
             default:
                 break;

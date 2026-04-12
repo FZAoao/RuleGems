@@ -67,7 +67,7 @@ public class ProfileGUI extends ChestMenu {
         if (totalPages > 1) {
             title += " &8(" + (page + 1) + "/" + totalPages + ")";
         }
-        title = ChatColor.translateAlternateColorCodes('&', title);
+        title = org.cubexmc.utils.ColorUtils.translateColorCodes(title);
 
         GUIHolder holder = new GUIHolder(GUIHolder.GUIType.PROFILE, player.getUniqueId(), player.hasPermission("rulegems.admin"), page);
         Inventory gui = Bukkit.createInventory(holder, GUIManager.GUI_SIZE, title);
@@ -80,6 +80,7 @@ public class ProfileGUI extends ChestMenu {
         gui.setItem(1, createRulerItem(player));
         gui.setItem(2, createAppointmentsItem(player));
         gui.setItem(3, createCommandsSummaryItem(commands.size()));
+        gui.setItem(4, createManagePowersItem(player));
 
         if (commands.isEmpty()) {
             gui.setItem(22, new ItemBuilder(Material.BARRIER)
@@ -126,7 +127,7 @@ public class ProfileGUI extends ChestMenu {
         for (String key : rulerKeys.stream().filter(key -> !"ALL".equals(key)).sorted(String.CASE_INSENSITIVE_ORDER)
                 .collect(Collectors.toList())) {
             GemDefinition definition = gemManager.findGemDefinitionByKey(key);
-            String display = definition != null ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName()) : key;
+            String display = definition != null ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName()) : key;
             builder.addLore("&f- " + display);
         }
         builder.glow();
@@ -152,7 +153,7 @@ public class ProfileGUI extends ChestMenu {
         for (Appointment appointment : appointments) {
             AppointDefinition definition = appointFeature.getAppointDefinition(appointment.getPermSetKey());
             String display = definition != null
-                    ? ChatColor.translateAlternateColorCodes('&', definition.getDisplayName())
+                    ? org.cubexmc.utils.ColorUtils.translateColorCodes(definition.getDisplayName())
                     : appointment.getPermSetKey();
             String appointer = appointment.getAppointerUuid() != null
                     ? gemManager.getCachedPlayerName(appointment.getAppointerUuid())
@@ -168,6 +169,15 @@ public class ProfileGUI extends ChestMenu {
                 .addEmptyLore()
                 .addLore("&e▸ " + rawMsg("profile.command_count") + ": &f" + commandCount)
                 .addLore("&7" + rawMsg("profile.commands_summary"))
+                .hideAttributes()
+                .build();
+    }
+
+    private ItemStack createManagePowersItem(Player player) {
+        return new ItemBuilder(Material.REDSTONE_TORCH)
+                .name("&c" + rawMsg("profile.manage_powers_title"))
+                .addEmptyLore()
+                .addLore("&7" + rawMsg("profile.manage_powers_lore"))
                 .hideAttributes()
                 .build();
     }
@@ -209,7 +219,7 @@ public class ProfileGUI extends ChestMenu {
     }
 
     private String msg(String path) {
-        return ChatColor.translateAlternateColorCodes('&', lang.getMessage("gui." + path));
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(lang.getMessage("gui." + path));
     }
 
     private String rawMsg(String path) {
@@ -217,5 +227,14 @@ public class ProfileGUI extends ChestMenu {
     }
 
     private record CommandEntry(String label, String remainingDisplay, long cooldownSeconds) {
+    }
+
+    @Override
+    public void onClick(Player player, GUIHolder holder, int slot, ItemStack clicked, org.bukkit.persistence.PersistentDataContainer pdc, boolean isShiftClick) {
+        if (slot == 4) {
+            manager.openPowerTogglesGUI(player, holder.isAdmin());
+            // Play a click sound
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+        }
     }
 }

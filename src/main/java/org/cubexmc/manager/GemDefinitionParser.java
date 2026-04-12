@@ -326,7 +326,7 @@ public class GemDefinitionParser {
         String fallback = languageManager != null ? languageManager.getMessage("messages.gem.default_display_name")
                 : "&cRule Gem";
         String raw = (nameStr != null && !nameStr.isEmpty()) ? nameStr : fallback;
-        return ChatColor.translateAlternateColorCodes('&', raw);
+        return org.cubexmc.utils.ColorUtils.translateColorCodes(raw);
     }
 
     private ExecuteConfig parseExecuteConfig(Object obj) {

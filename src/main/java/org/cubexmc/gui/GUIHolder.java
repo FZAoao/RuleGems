@@ -20,7 +20,8 @@ public class GUIHolder implements InventoryHolder {
         PROFILE,            // 玩家个人状态
         CABINET,            // 委任职位总览
         CABINET_MEMBERS,    // 某职位的任命/解雇界面
-        RULER_APPOINTEES    // 统治者任命详情
+        RULER_APPOINTEES,   // 统治者任命详情
+        POWER_TOGGLES       // 宝石能力开关
     }
 
     private final GUIType type;

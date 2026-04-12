@@ -294,6 +294,17 @@ gui:
     cooldown: "冷却"
     cooldown_ready: "已就绪"
     unlimited: "无限"
+    manage_powers_title: "⚙ 宝石能力设置"
+    manage_powers_lore: "点击进入面板，开启或关闭你的宝石能力"
+  power_toggles:
+    title: "&c✦ 宝石能力设置 ✦"
+    back_to_profile: "返回我的权力"
+    no_gems: "暂无宝石"
+    no_gems_lore: "你当前没有拥有任何宝石"
+    status_off: "当前状态：已关闭"
+    click_to_enable: "点击以开启该宝石能力"
+    status_on: "当前状态：已开启"
+    click_to_disable: "点击以关闭该宝石能力（仅停用你的效果和指令，不影响下属）"
   cabinet:
     title: "&d✦ 委任内阁 ✦"
     no_roles: "暂无可管理职位"
