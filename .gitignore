@@ -43,3 +43,8 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
+# Accidental uploads
+*.py
+*.class
+test.java
+configuration_gemocracy/
