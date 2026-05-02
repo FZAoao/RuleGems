@@ -713,7 +713,7 @@ public class GemPlacementManager {
                 particleLoc.setY(currentWorld.getMinHeight() + y);
                 currentWorld.spawnParticle(Particle.END_ROD, particleLoc, 2, 0.1, 0, 0.1, 0.01);
             }
-            currentWorld.spawnParticle(Particle.WITCH, loc, 5, 0.5, 0.5, 0.5, 0.1);
+            currentWorld.spawnParticle(Particle.TOTEM, loc, 5, 0.5, 0.5, 0.5, 0.1);
         }, 0L, interval);
         SchedulerUtil.globalRun(plugin, () -> {
             if (taskHolder[0] != null)
